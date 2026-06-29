@@ -19,7 +19,7 @@ type Storage struct {
 }
 
 type StorageInterface interface {
-    TestDB() (string, error)
+    TestDB(ctx context.Context) (string, error)
     GetOrderByUID(ctx context.Context, orderUID string) (*models.Order, error)
     GetAllOrdersUID(ctx context.Context) ([]string, error)
     GetRecentOrdersUID(ctx context.Context, limit int) ([]string, error)
@@ -67,19 +67,19 @@ func CreatePool(cfg *config.Config) (*pgxpool.Pool, error) {
 
 
 // Тестовый метод БД
-func (s *Storage) TestDB() (string, error) {
+func (s *Storage) TestDB(ctx context.Context) (string, error) {
     var result string
-    err := s.pool.QueryRow(context.Background(), "SELECT 'DataBase definetly works'").Scan(&result)
+    err := s.pool.QueryRow(ctx, "SELECT 'DataBase definetly works'").Scan(&result)
     return result, err
 }
 
 
 // Получение заказа по UID из БД
-func (s *Storage) GetOrderByUID(context context.Context, orderUID string) (*models.Order, error) {
+func (s *Storage) GetOrderByUID(ctx context.Context, orderUID string) (*models.Order, error) {
     // Получение основной информации о заказе
     orderQuery := "SELECT * FROM orders WHERE order_uid = $1"
     var order models.Order
-    err := s.pool.QueryRow(context, orderQuery, orderUID).Scan(
+    err := s.pool.QueryRow(ctx, orderQuery, orderUID).Scan(
         &order.OrderUID,
         &order.TrackNumber,
         &order.Entry,
@@ -104,7 +104,7 @@ func (s *Storage) GetOrderByUID(context context.Context, orderUID string) (*mode
     // Получение информации о доставке
     deliveryQuery := "SELECT name, phone, zip, city, address, region, email FROM delivery WHERE order_uid = $1"
     var delivery models.Delivery
-    err = s.pool.QueryRow(context, deliveryQuery, orderUID).Scan(
+    err = s.pool.QueryRow(ctx, deliveryQuery, orderUID).Scan(
         &delivery.Name,
         &delivery.Phone,
         &delivery.Zip,
@@ -122,7 +122,7 @@ func (s *Storage) GetOrderByUID(context context.Context, orderUID string) (*mode
     // Получение информации о платеже
     paymentQuery := "SELECT transaction, request_id, currency, provider, amount, payment_dt, bank, delivery_cost, goods_total, custom_fee FROM payment WHERE order_uid = $1"
     var payment models.Payment
-    err = s.pool.QueryRow(context, paymentQuery, orderUID).Scan(
+    err = s.pool.QueryRow(ctx, paymentQuery, orderUID).Scan(
         &payment.Transaction,
         &payment.RequestID,
         &payment.Currency,
@@ -142,7 +142,7 @@ func (s *Storage) GetOrderByUID(context context.Context, orderUID string) (*mode
 
     // Получение информации о товарах
     itemsQuery := "SELECT chrt_id, track_number, price, rid, name, sale, size, total_price, nm_id, brand, status FROM item WHERE order_uid = $1"
-    rows, err := s.pool.Query(context, itemsQuery, orderUID)
+    rows, err := s.pool.Query(ctx, itemsQuery, orderUID)
     if err != nil {
         return nil, fmt.Errorf("Failed to query items: %v", err)
     }

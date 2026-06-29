@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"time"
+	"errors"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/segmentio/kafka-go"
@@ -53,6 +54,10 @@ func (c *Consumer) Consume(ctx context.Context) {
 	for {
 		msg, err := c.reader.ReadMessage(ctx) // Чтение сообщений из Kafka
 		if err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+                log.Println("Consumer: shutting down")
+                return
+            }
 			log.Printf("Kafka failed to consume: %v", err)
 			continue
 		}

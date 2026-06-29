@@ -43,7 +43,7 @@ func (h *Handler) TestServerHandle(c *gin.Context) {
 
 // Хендлер для обработки тестового запроса к БД
 func (h *Handler) TestDBHandle(c *gin.Context) {
-    res, err := h.storage.TestDB()
+    res, err := h.storage.TestDB(c.Request.Context())
     if err != nil {
         log.Printf("Failed to test database: %v", err)
         c.JSON(http.StatusInternalServerError, gin.H{
@@ -129,7 +129,7 @@ func (h *Handler) GetOrderByUIDHandle(c *gin.Context) {
 
 // Хендлер для получения UID всех заказов
 func (h *Handler) GetAllOrdersUIDHandle(c *gin.Context) {
-    orderUIDs, err := h.storage.GetAllOrdersUID(c)
+    orderUIDs, err := h.storage.GetAllOrdersUID(c.Request.Context())
 
     if err != nil {
         log.Printf("Failed to get UIDs: %v", err)
@@ -147,7 +147,7 @@ func (h *Handler) GetAllOrdersUIDHandle(c *gin.Context) {
 
 // Хендлер для страницы основной страницы со всеми заказами
 func (h* Handler) AllOrdersPageHandle(c *gin.Context) {
-    orderUIDs, err := h.storage.GetAllOrdersUID(c)
+    orderUIDs, err := h.storage.GetAllOrdersUID(c.Request.Context())
 
     if err != nil {
         log.Printf("Failed to get UIDs: %v", err)

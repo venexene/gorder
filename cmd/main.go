@@ -65,7 +65,7 @@ func main() {
 
 	//Запуск консьюмера в горутине
 	go func() {
-		kafkaConsumer.Consume(context.Background())
+		kafkaConsumer.Consume(ctx)
 	} ()
 	log.Printf("Started consume proccess for topic %s", cfg.KafkaTopic)
 	

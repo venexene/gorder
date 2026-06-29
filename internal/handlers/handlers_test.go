@@ -18,7 +18,7 @@ import (
 // Мок для базы данных
 type mockStorage struct{}
 
-func (m *mockStorage) TestDB() (string, error) {
+func (m *mockStorage) TestDB(ctx context.Context) (string, error) {
 	return "Database works", nil
 }
 
