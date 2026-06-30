@@ -30,7 +30,7 @@ Cache-aside: `GetOrderByUIDHandle` and `OrderPageHandle` check the cache first, 
 Write path:
 
 ```
-Kafka -> consumer -> validate -> PostgreSQL (transactional)
+Kafka -> consumer -> validate -> PostgreSQL
                               -> LRU cache
 ```
 
