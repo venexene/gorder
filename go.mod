@@ -1,4 +1,4 @@
-module github.com/venexene/wbl0-orders-service
+module github.com/venexene/gorder
 
 go 1.23.8
 
@@ -7,6 +7,7 @@ toolchain go1.24.6
 require (
 	github.com/gin-gonic/gin v1.10.1
 	github.com/go-playground/validator/v10 v10.27.0
+	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.5
 	github.com/joho/godotenv v1.5.1
 	github.com/segmentio/kafka-go v0.4.49

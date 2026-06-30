@@ -9,9 +9,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/venexene/wbl0-orders-service/internal/cache"
-	"github.com/venexene/wbl0-orders-service/internal/config"
-	"github.com/venexene/wbl0-orders-service/internal/models"
+	"github.com/venexene/gorder/internal/cache"
+	"github.com/venexene/gorder/internal/config"
+	"github.com/venexene/gorder/internal/models"
 )
 
 

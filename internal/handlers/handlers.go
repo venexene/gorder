@@ -11,9 +11,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/segmentio/kafka-go"
     
-	"github.com/venexene/wbl0-orders-service/internal/cache"
-	"github.com/venexene/wbl0-orders-service/internal/config"
-	"github.com/venexene/wbl0-orders-service/internal/database"
+	"github.com/venexene/gorder/internal/cache"
+	"github.com/venexene/gorder/internal/config"
+	"github.com/venexene/gorder/internal/database"
 )
 
 // Структура хендлера

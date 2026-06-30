@@ -11,7 +11,7 @@ RUN go mod download
 COPY . .
 
 # Сборка приложения
-RUN go build -o emulator .
+RUN go build -o emulator ./cmd/emulator
 
 # Запуск эмулятора-продюсера
 CMD ["./emulator"]

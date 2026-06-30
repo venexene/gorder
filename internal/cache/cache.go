@@ -6,8 +6,8 @@ import (
 	"log"
 	"sync"
 
-	"github.com/venexene/wbl0-orders-service/internal/database"
-	"github.com/venexene/wbl0-orders-service/internal/models"
+	"github.com/venexene/gorder/internal/database"
+	"github.com/venexene/gorder/internal/models"
 )
 
 type cacheNode struct {

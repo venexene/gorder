@@ -13,77 +13,17 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/segmentio/kafka-go"
     "github.com/google/uuid"
+
+    "github.com/venexene/gorder/internal/models"
 )
 
-//Структура для заказа
-type Order struct {
-    OrderUID string `json:"order_uid"`
-    TrackNumber       string    `json:"track_number"`
-    Entry             string    `json:"entry"`
-    Locale            string    `json:"locale"`
-    InternalSignature string    `json:"internal_signature"`
-    CustomerID        string    `json:"customer_id"`
-    DeliveryService   string    `json:"delivery_service"`
-    ShardKey          string    `json:"shardkey"`
-    SMID              int       `json:"sm_id"`
-    DateCreated       time.Time `json:"date_created"`
-    OOFShard          string    `json:"oof_shard"`
-    Delivery          Delivery  `json:"delivery"`
-    Payment           Payment   `json:"payment"`
-    Items             []Item    `json:"items"`
-}
-
-//Структура для доставки
-type Delivery struct {
-    OrderUID string `json:"-"`
-    Name     string `json:"name"`
-    Phone    string `json:"phone"`
-    Zip      string `json:"zip"`
-    City     string `json:"city"`
-    Address  string `json:"address"`
-    Region   string `json:"region"`
-    Email    string `json:"email"`
-}
-
-//Структура для оплаты
-type Payment struct {
-    OrderUID     string `json:"-"`
-    Transaction  string `json:"transaction"`
-    RequestID    string `json:"request_id"`
-    Currency     string `json:"currency"`
-    Provider     string `json:"provider"`
-    Amount       int    `json:"amount"`
-    PaymentDt    int64  `json:"payment_dt"`
-    Bank         string `json:"bank"`
-    DeliveryCost int    `json:"delivery_cost"`
-    GoodsTotal   int    `json:"goods_total"`
-    CustomFee    int    `json:"custom_fee"`
-}
-
-//Структура для предмета заказа
-type Item struct {
-    ID          int    `json:"-"`
-    OrderUID    string `json:"-"`
-    ChrtID      int    `json:"chrt_id"`
-    TrackNumber string `json:"track_number"`
-    Price       int    `json:"price"`
-    Rid         string `json:"rid"`
-    Name        string `json:"name"`
-    Sale        int    `json:"sale"`
-    Size        string `json:"size"`
-    TotalPrice  int    `json:"total_price"`
-    NmID        int    `json:"nm_id"`
-    Brand       string `json:"brand"`
-    Status      int    `json:"status"`
-}
-
-func loadOrderFromFile(path string) (*Order, error) {
+func loadOrderFromFile(path string) (*models.Order, error) {
     data, err := os.ReadFile(path)
     if err != nil {
         return nil, fmt.Errorf("Failed to read file %s: %v", path, err)
     }
 
-    var order Order
+    var order models.Order
     if err := json.Unmarshal(data, &order); err != nil {
         return nil, fmt.Errorf("Failed to unmarshal JSON: %v", err)
     }
@@ -172,11 +112,11 @@ func main() {
 }
 
 // Генерация случайного заказа
-func generateRandomOrder() Order {
+func generateRandomOrder() models.Order {
     orderUID := uuid.New().String()
     currentTime := time.Now()
 
-    delivery := Delivery {
+    delivery := models.Delivery {
         OrderUID: orderUID,
         Name:    generateRandomString(100),
         Phone:   generateRandomPhone(),
@@ -187,41 +127,41 @@ func generateRandomOrder() Order {
         Email:   generateRandomEmail(),
     }
 
-    payment := Payment {
+    payment := models.Payment {
         OrderUID:     orderUID,
         Transaction:  orderUID,
         RequestID:    generateRandomString(10),
         Currency:     "USD",
         Provider:     "WBPAY",
         Amount:       rand.IntN(100000) + 10,
-        PaymentDt:    currentTime.Unix() - int64(rand.IntN(1000000)),
+        PaymentDt:    uint64(currentTime.Unix()) - rand.Uint64N(1000000),
         Bank:         generateRandomString(15),
-        DeliveryCost: rand.IntN(1000),
-        GoodsTotal:   rand.IntN(500),
-        CustomFee:    rand.IntN(100),
+        DeliveryCost: rand.UintN(1000),
+        GoodsTotal:   rand.UintN(500),
+        CustomFee:    rand.UintN(100),
     }
 
     itemsCount := rand.IntN(5) + 1 // Случайное число предметов
-    var items []Item
+    var items []models.Item
     for i := 0; i < itemsCount; i++ {
-        item := Item {
+        item := models.Item {
             OrderUID:    orderUID,
-            ChrtID:      rand.IntN(100000) + 1,
+            ChrtID:      rand.UintN(100000) + 1,
             TrackNumber: generateRandomString(10), 
-            Price:       rand.IntN(100000),
+            Price:       rand.UintN(100000),
             Rid:         generateRandomString(20),
             Name:        generateRandomString(15),
-            Sale:        rand.IntN(99),
-            Size:        fmt.Sprintf("%d", rand.IntN(5) + 1),
-            TotalPrice:  rand.IntN(100000),
-            NmID:        rand.IntN(100000) + 1,
+            Sale:        rand.UintN(99),
+            Size:        fmt.Sprintf("%d", rand.UintN(5) + 1),
+            TotalPrice:  rand.UintN(100000),
+            NmID:        rand.UintN(100000) + 1,
             Brand:       generateRandomString(12),
-            Status:      rand.IntN(999),
+            Status:      rand.UintN(999),
         }
         items = append(items, item)
     }
 
-    order := Order {
+    order := models.Order {
         OrderUID:          orderUID,
         TrackNumber:       generateRandomString(10),
         Entry:             generateRandomString(4),
@@ -230,7 +170,7 @@ func generateRandomOrder() Order {
         CustomerID:        generateRandomString(8),
         DeliveryService:   generateRandomString(7),
         ShardKey:          fmt.Sprintf("%d", rand.IntN(10)),
-        SMID:              rand.IntN(100) + 1,
+        SMID:              rand.UintN(100) + 1,
         DateCreated:       currentTime,
         OOFShard:          fmt.Sprintf("%d", rand.IntN(10)),
         Delivery:          delivery,

@@ -10,9 +10,9 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/segmentio/kafka-go"
 
-	"github.com/venexene/wbl0-orders-service/internal/cache"
-	"github.com/venexene/wbl0-orders-service/internal/database"
-	"github.com/venexene/wbl0-orders-service/internal/models"
+	"github.com/venexene/gorder/internal/cache"
+	"github.com/venexene/gorder/internal/database"
+	"github.com/venexene/gorder/internal/models"
 )
 
 // Структура консьюмера

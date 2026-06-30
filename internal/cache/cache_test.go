@@ -3,7 +3,7 @@ package cache
 import (
 	"testing"
 
-	"github.com/venexene/wbl0-orders-service/internal/models"
+	"github.com/venexene/gorder/internal/models"
 )
 
 // Тестирование основных операций с кэшем

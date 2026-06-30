@@ -2,7 +2,7 @@ services:
 
   db:
     image: postgres
-    container_name: wbl0-orders-database
+    container_name: gorder-database
     restart: always
     environment:
       POSTGRES_DB: ${DB_NAME}
@@ -24,7 +24,7 @@ services:
 
   app:
     build: .
-    container_name: wbl0-orders-app
+    container_name: gorder-app
     depends_on:
       db:
         condition: service_healthy
@@ -48,7 +48,7 @@ services:
   
   kafka:
     image: bitnami/kafka:latest
-    container_name: kafka
+    container_name: gorder-kafka
     ports:
       - "${KAFKA_PORT}:9092"
     environment:
@@ -98,7 +98,8 @@ services:
 
   kafka-emulator:
     build:
-      context: ./tools/producer-emulator
+      context: .
+      dockerfile: cmd/emulator/Dockerfile
     volumes:
       - ./testdata:/app/testdata
     depends_on:
