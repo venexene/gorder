@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -13,11 +16,13 @@ import (
 	"github.com/venexene/gorder/internal/models"
 )
 
-// Структура для работы с БД
+// Storage provides database operations backed by a pgx connection pool.
 type Storage struct {
-	pool *pgxpool.Pool
+	pool          *pgxpool.Pool
+	migrationPath string
 }
 
+// StorageInterface defines the contract for order storage operations.
 type StorageInterface interface {
 	TestDB(ctx context.Context) (string, error)
 	GetOrderByUID(ctx context.Context, orderUID string) (*models.Order, error)
@@ -28,14 +33,16 @@ type StorageInterface interface {
 	AddOrderIfNotExists(ctx context.Context, order *models.Order) error
 }
 
-// Конструктор структуры для БД
-func NewStorage(pool *pgxpool.Pool) *Storage {
-	return &Storage{pool: pool}
+// NewStorage creates a new Storage with the given connection pool and migration path.
+func NewStorage(pool *pgxpool.Pool, migrationPath string) *Storage {
+	return &Storage{
+		pool:          pool,
+		migrationPath: migrationPath,
+	}
 }
 
-// Создание пула соединений к БД
+// CreatePool opens a PostgreSQL connection pool using the provided config.
 func CreatePool(ctx context.Context, cfg *config.Config) (*pgxpool.Pool, error) {
-	// Формирование строки подключения
 	connectionStr := fmt.Sprintf(
 		"postgres://%s:%s@%s:%s/%s?sslmode=%s",
 		cfg.DBUser,
@@ -46,17 +53,14 @@ func CreatePool(ctx context.Context, cfg *config.Config) (*pgxpool.Pool, error) 
 		cfg.DBSSLMode,
 	)
 
-	// Создание контекста с таймаутом для контроля времени выполнения и обработки отмены
 	poolCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	// Создание пула для соедиения
 	pool, err := pgxpool.New(poolCtx, connectionStr)
 	if err != nil {
 		return pool, fmt.Errorf("Failed to create pool: %v", err)
 	}
 
-	// Проверка соединения
 	if err := pool.Ping(poolCtx); err != nil {
 		return pool, fmt.Errorf("Failed to ping database: %v", err)
 	}
@@ -64,16 +68,31 @@ func CreatePool(ctx context.Context, cfg *config.Config) (*pgxpool.Pool, error) 
 	return pool, nil
 }
 
-// Тестовый метод БД
+// RunMigrations applies all pending database migrations.
+func (s *Storage) RunMigrations() error {
+	connStr := s.pool.Config().ConnConfig.ConnString()
+
+	m, err := migrate.New(fmt.Sprintf("file://%s", s.migrationPath), connStr)
+	if err != nil {
+		return fmt.Errorf("Failed to init migrate: %v", err)
+	}
+
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("Failed to up migrate: %v", err)
+	}
+
+	return nil
+}
+
+// TestDB verifies the database connection is alive.
 func (s *Storage) TestDB(ctx context.Context) (string, error) {
 	var result string
 	err := s.pool.QueryRow(ctx, "SELECT 'DataBase definetly works'").Scan(&result)
 	return result, err
 }
 
-// Получение заказа по UID из БД
+// GetOrderByUID retrieves a complete order with delivery, payment and items.
 func (s *Storage) GetOrderByUID(ctx context.Context, orderUID string) (*models.Order, error) {
-	// Получение основной информации о заказе
 	orderQuery := "SELECT * FROM orders WHERE order_uid = $1"
 	var order models.Order
 	err := s.pool.QueryRow(ctx, orderQuery, orderUID).Scan(
@@ -89,7 +108,6 @@ func (s *Storage) GetOrderByUID(ctx context.Context, orderUID string) (*models.O
 		&order.DateCreated,
 		&order.OOFShard,
 	)
-
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("Failed to find order with UID %v", orderUID)
@@ -97,7 +115,6 @@ func (s *Storage) GetOrderByUID(ctx context.Context, orderUID string) (*models.O
 		return nil, fmt.Errorf("Failed to query database: %v", err)
 	}
 
-	// Получение информации о доставке
 	deliveryQuery := "SELECT name, phone, zip, city, address, region, email FROM delivery WHERE order_uid = $1"
 	var delivery models.Delivery
 	err = s.pool.QueryRow(ctx, deliveryQuery, orderUID).Scan(
@@ -114,7 +131,6 @@ func (s *Storage) GetOrderByUID(ctx context.Context, orderUID string) (*models.O
 	}
 	order.Delivery = delivery
 
-	// Получение информации о платеже
 	paymentQuery := "SELECT transaction, request_id, currency, provider, amount, payment_dt, bank, delivery_cost, goods_total, custom_fee FROM payment WHERE order_uid = $1"
 	var payment models.Payment
 	err = s.pool.QueryRow(ctx, paymentQuery, orderUID).Scan(
@@ -134,15 +150,13 @@ func (s *Storage) GetOrderByUID(ctx context.Context, orderUID string) (*models.O
 	}
 	order.Payment = payment
 
-	// Получение информации о товарах
 	itemsQuery := "SELECT chrt_id, track_number, price, rid, name, sale, size, total_price, nm_id, brand, status FROM item WHERE order_uid = $1"
 	rows, err := s.pool.Query(ctx, itemsQuery, orderUID)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to query items: %v", err)
 	}
 	defer rows.Close()
-
-	var items []models.Item // Срез для хранения товаров
+	var items []models.Item
 	for rows.Next() {
 		var item models.Item
 		err = rows.Scan(
@@ -161,10 +175,8 @@ func (s *Storage) GetOrderByUID(ctx context.Context, orderUID string) (*models.O
 		if err != nil {
 			return nil, fmt.Errorf("Failed to scan item: %v", err)
 		}
-		items = append(items, item) // Добавление полученного товара в срез
+		items = append(items, item)
 	}
-
-	// Обработка ошибок итерации
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("Failed to iterate items: %v", err)
 	}
@@ -173,16 +185,14 @@ func (s *Storage) GetOrderByUID(ctx context.Context, orderUID string) (*models.O
 	return &order, nil
 }
 
-// Добавление заказа в БД
+// AddOrder inserts an order and all related data in a single transaction.
 func (s *Storage) AddOrder(ctx context.Context, order *models.Order) error {
-	// Начало транзакции для атомарного добавления данных
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("Failed to begin transaction: %v", err)
 	}
-	defer tx.Rollback(ctx) // Откат транзакции в случае ошибки
+	defer tx.Rollback(ctx)
 
-	// Добавление основной информации о заказе
 	orderQuery := `
         INSERT INTO orders (
             order_uid, track_number, entry, locale, internal_signature,
@@ -206,7 +216,6 @@ func (s *Storage) AddOrder(ctx context.Context, order *models.Order) error {
 		return fmt.Errorf("Failed to insert order: %v", err)
 	}
 
-	// Добавление информации о доставке
 	deliveryQuery := `
         INSERT INTO delivery (
             order_uid, name, phone, zip, city, address, region, email
@@ -226,7 +235,6 @@ func (s *Storage) AddOrder(ctx context.Context, order *models.Order) error {
 		return fmt.Errorf("Failed to insert delivery: %v", err)
 	}
 
-	// Добавление информации о платеже
 	paymentQuery := `
         INSERT INTO payment (
             order_uid, transaction, request_id, currency, provider, amount, 
@@ -250,7 +258,6 @@ func (s *Storage) AddOrder(ctx context.Context, order *models.Order) error {
 		return fmt.Errorf("Failed to insert payment: %v", err)
 	}
 
-	// Добавление информации о товарах
 	itemQuery := `
         INSERT INTO item (
             order_uid, chrt_id, track_number, price, rid, name, 
@@ -276,8 +283,6 @@ func (s *Storage) AddOrder(ctx context.Context, order *models.Order) error {
 			return fmt.Errorf("Failed to insert item: %v", err)
 		}
 	}
-
-	// Подтверждение транзакции
 	if err = tx.Commit(ctx); err != nil {
 		return fmt.Errorf("Failed to commit transaction: %v", err)
 	}
@@ -285,7 +290,7 @@ func (s *Storage) AddOrder(ctx context.Context, order *models.Order) error {
 	return nil
 }
 
-// Проверка существования заказа по UID
+// OrderExists checks whether an order with the given UID exists.
 func (s *Storage) OrderExists(ctx context.Context, orderUID string) (bool, error) {
 	query := "SELECT EXISTS(SELECT 1 FROM orders WHERE order_uid = $1)"
 	var exists bool
@@ -298,7 +303,7 @@ func (s *Storage) OrderExists(ctx context.Context, orderUID string) (bool, error
 	return exists, nil
 }
 
-// Добавление заказа с проверкой на существование
+// AddOrderIfNotExists inserts an order only if its UID is not already present.
 func (s *Storage) AddOrderIfNotExists(ctx context.Context, order *models.Order) error {
 	exists, err := s.OrderExists(ctx, order.OrderUID)
 	if err != nil {
@@ -311,20 +316,16 @@ func (s *Storage) AddOrderIfNotExists(ctx context.Context, order *models.Order) 
 	return s.AddOrder(ctx, order)
 }
 
-// Получение UID всех заказов
+// GetAllOrdersUID returns UIDs of all orders in the database.
 func (s *Storage) GetAllOrdersUID(ctx context.Context) ([]string, error) {
 	query := "SELECT order_uid FROM orders"
-
-	// Получение всех uid из БД
 	rows, err := s.pool.Query(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to  query orders: %v", err)
 	}
 	defer rows.Close()
 
-	var listUIDs []string // Срез для всех UID
-
-	// Добавление всех uid в срез
+	var listUIDs []string
 	for rows.Next() {
 		var uid string
 		if err := rows.Scan(&uid); err != nil {
@@ -332,8 +333,6 @@ func (s *Storage) GetAllOrdersUID(ctx context.Context) ([]string, error) {
 		}
 		listUIDs = append(listUIDs, uid)
 	}
-
-	// Обработка ошибок итерации
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("Failed to iterate order_uid: %v", err)
 	}
@@ -341,6 +340,7 @@ func (s *Storage) GetAllOrdersUID(ctx context.Context) ([]string, error) {
 	return listUIDs, nil
 }
 
+// GetRecentOrdersUID returns UIDs of the most recent orders, limited by count.
 func (s *Storage) GetRecentOrdersUID(ctx context.Context, limit int) ([]string, error) {
 	query := "SELECT order_uid FROM orders ORDER BY date_created DESC LIMIT $1"
 

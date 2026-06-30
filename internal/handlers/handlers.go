@@ -10,190 +10,174 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/segmentio/kafka-go"
-    
+
 	"github.com/venexene/gorder/internal/cache"
 	"github.com/venexene/gorder/internal/config"
 	"github.com/venexene/gorder/internal/database"
 )
 
-// Структура хендлера
+// Handler holds dependencies for HTTP request handlers.
 type Handler struct {
-    storage database.StorageInterface
-    cfg     *config.Config
-    cache   *cache.Cache
+	storage database.StorageInterface
+	cfg     *config.Config
+	cache   *cache.Cache
 }
 
-// Конструктор структуры хендлера
+// NewHandler creates a Handler with the given dependencies.
 func NewHandler(storage database.StorageInterface, cfg *config.Config, cache *cache.Cache) *Handler {
-    return &Handler{
-        storage: storage,
-        cfg:     cfg,
-        cache:   cache,
-    }
+	return &Handler{
+		storage: storage,
+		cfg:     cfg,
+		cache:   cache,
+	}
 }
 
-
-// Хендлер для обработки тестового запроса к серверу
+// TestServerHandle responds with a simple server status check.
 func (h *Handler) TestServerHandle(c *gin.Context) {
-    c.JSON(http.StatusOK, gin.H{
-        "status": "Server definetly works",
-    })
+	c.JSON(http.StatusOK, gin.H{
+		"status": "Server definetly works",
+	})
 }
 
-
-// Хендлер для обработки тестового запроса к БД
+// TestDBHandle verifies the database connection and returns its status.
 func (h *Handler) TestDBHandle(c *gin.Context) {
-    res, err := h.storage.TestDB(c.Request.Context())
-    if err != nil {
-        log.Printf("Failed to test database: %v", err)
-        c.JSON(http.StatusInternalServerError, gin.H{
-            "error": "Failed to connect database",
-        })
-        return
-    }
+	res, err := h.storage.TestDB(c.Request.Context())
+	if err != nil {
+		log.Printf("Failed to test database: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to connect database",
+		})
+		return
+	}
 
-    c.JSON(http.StatusOK, gin.H{
-        "status": res,
-    })
+	c.JSON(http.StatusOK, gin.H{
+		"status": res,
+	})
 }
 
-
-// Хендлер для обработки тестового запроса к Kafka
+// TestKafkaHandle checks connectivity to the Kafka broker.
 func (h *Handler) TestKafkaHandle(c *gin.Context) {
-    kafkaBrokers := h.cfg.KafkaBrokers
+	kafkaBrokers := h.cfg.KafkaBrokers
+	ctxKafka, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-    // Контекст с таймаутом для ограничения времени выполнения операции с Kafka
-    ctxKafka, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
-    defer cancel() // Отложенный вызов отмены контекса для освобождения ресурсов
+	connKafka, err := kafka.DialContext(ctxKafka, "tcp", kafkaBrokers)
+	if err != nil {
+		log.Printf("Failed to test Kafka: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to connect Kafka",
+		})
+		return
+	}
+	defer connKafka.Close()
 
-    // Установка соединений с Kafka
-    connKafka, err := kafka.DialContext(ctxKafka, "tcp", kafkaBrokers)
-    if err != nil {
-        log.Printf("Failed to test Kafka: %v", err)
-        c.JSON(http.StatusInternalServerError, gin.H{
-            "error" : "Failed to connect Kafka",
-        })
-        return
-    }
-    defer connKafka.Close() // Отложенное закрытие соединения с Kafka
-
-    broker := connKafka.Broker() // Получение информации о брокере
-    c.JSON(http.StatusOK, gin.H {
-        "status":    "Kafka definetly works",
-        "brokers":   kafkaBrokers,
-        "broker_id": broker.ID,
-    })
+	broker := connKafka.Broker()
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "Kafka definetly works",
+		"brokers":   kafkaBrokers,
+		"broker_id": broker.ID,
+	})
 }
 
-
-// Хендлер для обработки запроса на получение всей информации о заказе по UID
+// GetOrderByUIDHandle returns full order data as JSON, using cache when available.
 func (h *Handler) GetOrderByUIDHandle(c *gin.Context) {
-    orderUID := c.Param("uid") // Извлечение UID из URL
-    
-    // Проверка что передан не пустой UID
-    if orderUID == "" {
-        c.JSON(http.StatusBadRequest, gin.H{
-            "error": "No UID recieved",
-        })
-        return
-    }
+	orderUID := c.Param("uid")
+	if orderUID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "No UID recieved",
+		})
+		return
+	}
 
-    //Проверка наличия в кэше
-    if cachedOrder, exists := h.cache.Get(orderUID); exists {
-        c.JSON(http.StatusOK, cachedOrder)
-        return
-    }
+	if cachedOrder, exists := h.cache.Get(orderUID); exists {
+		c.JSON(http.StatusOK, cachedOrder)
+		return
+	}
 
-    // Вызов функции получения всей информации о заказе по UID
-    order, err := h.storage.GetOrderByUID(c.Request.Context(), orderUID)
-    
-    //Обработка ошибок получения заказа
-    if err != nil {
-        log.Printf("Failed to get info by UID: %v", err)
-        if errors.Is(err, pgx.ErrNoRows) {
-            c.JSON(http.StatusNotFound, gin.H{
-                "error": "Failed to find order",
-            })
-        } else {
-            c.JSON(http.StatusInternalServerError, gin.H{
-                "error": "Internal server error",
-            })
-        }
-        return
-    }
+	order, err := h.storage.GetOrderByUID(c.Request.Context(), orderUID)
+	if err != nil {
+		log.Printf("Failed to get info by UID: %v", err)
+		if errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "Failed to find order",
+			})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Internal server error",
+			})
+		}
+		return
+	}
 
-    h.cache.Set(order)
-    c.JSON(http.StatusOK, order)
+	h.cache.Set(order)
+	c.JSON(http.StatusOK, order)
 }
 
-
-// Хендлер для получения UID всех заказов
+// GetAllOrdersUIDHandle returns all order UIDs as JSON.
 func (h *Handler) GetAllOrdersUIDHandle(c *gin.Context) {
-    orderUIDs, err := h.storage.GetAllOrdersUID(c.Request.Context())
+	orderUIDs, err := h.storage.GetAllOrdersUID(c.Request.Context())
 
-    if err != nil {
-        log.Printf("Failed to get UIDs: %v", err)
-        c.JSON(http.StatusInternalServerError, gin.H{
-            "error": "Failed to get order UIDs",
-        })
-        return
-    }
+	if err != nil {
+		log.Printf("Failed to get UIDs: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to get order UIDs",
+		})
+		return
+	}
 
-    c.JSON(http.StatusOK, gin.H{
-        "order_uids": orderUIDs,
-    })
+	c.JSON(http.StatusOK, gin.H{
+		"order_uids": orderUIDs,
+	})
 }
 
+// AllOrdersPageHandle renders the HTML page listing all orders.
+func (h *Handler) AllOrdersPageHandle(c *gin.Context) {
+	orderUIDs, err := h.storage.GetAllOrdersUID(c.Request.Context())
 
-// Хендлер для страницы основной страницы со всеми заказами
-func (h* Handler) AllOrdersPageHandle(c *gin.Context) {
-    orderUIDs, err := h.storage.GetAllOrdersUID(c.Request.Context())
+	if err != nil {
+		log.Printf("Failed to get UIDs: %v", err)
+		c.HTML(http.StatusInternalServerError, "error.html", gin.H{
+			"error": "Failed to load orders",
+		})
+		return
+	}
 
-    if err != nil {
-        log.Printf("Failed to get UIDs: %v", err)
-        c.HTML(http.StatusInternalServerError, "error.html", gin.H{
-            "error": "Failed to load orders",
-        })
-        return
-    }
-
-    c.HTML(http.StatusOK, "orders.html", gin.H{
-        "orders": orderUIDs,
-    })
+	c.HTML(http.StatusOK, "orders.html", gin.H{
+		"orders": orderUIDs,
+	})
 }
 
+// OrderPageHandle renders the HTML page for a single order.
+func (h *Handler) OrderPageHandle(c *gin.Context) {
+	orderUID := c.Param("uid")
 
-// Хендлер для страницы о заказе
-func (h* Handler) OrderPageHandle(c *gin.Context) {
-    orderUID := c.Param("uid")
+	if orderUID == "" {
+		c.HTML(http.StatusBadRequest, "error.html", gin.H{
+			"error": "No UID received",
+		})
+		return
+	}
 
-    if orderUID == "" {
-        c.HTML(http.StatusBadRequest, "error.html", gin.H{
-            "error": "No UID received",
-        })
-        return
-    }
+	if cachedOrder, exists := h.cache.Get(orderUID); exists {
+		c.HTML(http.StatusOK, "order.html", cachedOrder)
+		return
+	}
 
-    if cachedOrder, exists := h.cache.Get(orderUID); exists {
-        c.HTML(http.StatusOK, "order.html", cachedOrder)
-        return
-    }
+	order, err := h.storage.GetOrderByUID(c.Request.Context(), orderUID)
+	if err != nil {
+		log.Printf("Failed to get info by UID: %v", err)
+		if errors.Is(err, pgx.ErrNoRows) {
+			c.HTML(http.StatusNotFound, "error.html", gin.H{
+				"error": "Orders not found",
+			})
+		} else {
+			c.HTML(http.StatusInternalServerError, "error.html", gin.H{
+				"error": "Internal server error",
+			})
+		}
+		return
+	}
 
-    order, err := h.storage.GetOrderByUID(c.Request.Context(), orderUID)
-    if err != nil {
-        log.Printf("Failed to get info by UID: %v", err)
-        if errors.Is(err, pgx.ErrNoRows) {
-            c.HTML(http.StatusNotFound, "error.html", gin.H{
-                "error": "Orders not found",
-            })
-        } else {
-            c.HTML(http.StatusInternalServerError, "error.html", gin.H{
-                "error": "Internal server error",
-            })
-        }
-        return
-    }
-
-    h.cache.Set(order)
-    c.HTML(http.StatusOK, "order.html", order)
+	h.cache.Set(order)
+	c.HTML(http.StatusOK, "order.html", order)
 }

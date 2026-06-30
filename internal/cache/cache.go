@@ -17,35 +17,32 @@ type cacheNode struct {
 	next  *cacheNode
 }
 
-// Структура кэша
+// Cache is a thread-safe LRU cache for orders.
 type Cache struct {
 	capacity int
-	elems    map[string] *cacheNode
+	elems    map[string]*cacheNode
 	head     *cacheNode
 	tail     *cacheNode
 	mu       sync.RWMutex
 }
 
-// Конструктор кэша
+// NewCache creates an LRU cache with the given maximum capacity.
 func NewCache(capacity int) *Cache {
-	elems := make(map[string] *cacheNode)
+	elems := make(map[string]*cacheNode)
 
-	cache := Cache {
+	cache := Cache{
 		capacity: capacity,
-		elems: elems,
-		head: &cacheNode{},
-		tail: &cacheNode{},
+		elems:    elems,
+		head:     &cacheNode{},
+		tail:     &cacheNode{},
 	}
-	
+
 	cache.head.next = cache.tail
 	cache.tail.prev = cache.head
 
 	return &cache
 }
 
-
-
-// Добавление узла
 func (c *Cache) addNode(n *cacheNode) {
 	n.prev = c.head
 	n.next = c.head.next
@@ -53,30 +50,25 @@ func (c *Cache) addNode(n *cacheNode) {
 	c.head.next = n
 }
 
-// Удаление узла
-func (c* Cache) removeNode(n *cacheNode) {
+func (c *Cache) removeNode(n *cacheNode) {
 	prev := n.prev
 	next := n.next
 	prev.next = next
 	next.prev = prev
 }
 
-// Перенос узла в начало списка
 func (c *Cache) moveToHead(n *cacheNode) {
 	c.removeNode(n)
 	c.addNode(n)
 }
 
-// Удаление последнего узла списка
-func (c*Cache) popTail() *cacheNode {
+func (c *Cache) popTail() *cacheNode {
 	res := c.tail.prev
 	c.removeNode(res)
 	return res
 }
 
-
-
-// Добавление данных в кэш
+// Set adds or updates an order in the cache, evicting the least recently used item if at capacity.
 func (c *Cache) Set(order *models.Order) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -97,11 +89,11 @@ func (c *Cache) Set(order *models.Order) {
 	}
 }
 
-// Получение данных из кэша
+// Get retrieves an order from the cache and marks it as recently used.
 func (c *Cache) Get(key string) (*models.Order, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	
+
 	if n, exist := c.elems[key]; exist {
 		c.moveToHead(n)
 		return n.value, true
@@ -110,14 +102,14 @@ func (c *Cache) Get(key string) (*models.Order, bool) {
 	return nil, false
 }
 
-// Удаление из кэша
+// Delete removes an order from the cache.
 func (c *Cache) Delete(key string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	delete(c.elems, key)
 }
 
-// Получение UID всех заказов в кэше
+// GetAllUIDs returns UIDs of all orders currently in the cache.
 func (c *Cache) GetAllUIDs() []string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -128,14 +120,14 @@ func (c *Cache) GetAllUIDs() []string {
 	return uids
 }
 
-// Получение размера кэша
-func (c *Cache) Size() int { 
+// Size returns the current number of orders in the cache.
+func (c *Cache) Size() int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return len(c.elems)
 }
 
-// Заполнение кэша
+// Populate preloads the cache with the most recent orders from the database.
 func (c *Cache) Populate(ctx context.Context, storage *database.Storage) error {
 	uids, err := storage.GetRecentOrdersUID(ctx, c.capacity)
 	if err != nil {

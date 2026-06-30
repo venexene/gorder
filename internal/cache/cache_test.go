@@ -6,7 +6,7 @@ import (
 	"github.com/venexene/gorder/internal/models"
 )
 
-// Тестирование основных операций с кэшем
+// TestCacheSetGet verifies basic Set/Get operations and non-existent key lookup.
 func TestCacheSetGet(t *testing.T) {
 	cache := NewCache(2)
 	order, err := models.LoadOrderFromFile("../../testdata/order1.json")
@@ -24,7 +24,7 @@ func TestCacheSetGet(t *testing.T) {
 	}
 }
 
-// Тестирование основных вытеснения из кэша
+// TestCacheEviction verifies that the least recently used item is evicted when capacity is exceeded.
 func TestCacheEviction(t *testing.T) {
 	cache := NewCache(2)
 	order1, err := models.LoadOrderFromFile("../../testdata/order1.json")
@@ -59,10 +59,10 @@ func TestCacheEviction(t *testing.T) {
 	}
 }
 
-// Тестирование получения содержимого из кэша
+// TestCacheGetAllUIDs verifies that GetAllUIDs returns all keys currently in the cache.
 func TestCacheGetAllUIDs(t *testing.T) {
 	cache := NewCache(3)
-	
+
 	order1, err := models.LoadOrderFromFile("../../testdata/order1.json")
 	if err != nil {
 		t.Errorf("Failed to load order1 from file: %v", err)
@@ -88,13 +88,13 @@ func TestCacheGetAllUIDs(t *testing.T) {
 	}
 }
 
-// Тестирование удаления изша
+// TestCacheDelete verifies that an order is properly removed from the cache.
 func TestCacheDelete(t *testing.T) {
 	cache := NewCache(2)
 
 	order, err := models.LoadOrderFromFile("../../testdata/order1.json")
 	if err != nil {
-		t.Errorf("Failed to load order1 from file: %v" ,err)
+		t.Errorf("Failed to load order1 from file: %v", err)
 	}
 
 	cache.Set(order)

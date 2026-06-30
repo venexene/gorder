@@ -14,15 +14,13 @@ import (
 	"github.com/venexene/gorder/internal/models"
 )
 
-
-// Мок для базы данных
 type mockStorage struct{}
 
 func (m *mockStorage) TestDB(ctx context.Context) (string, error) {
 	return "Database works", nil
 }
 
-func (m *mockStorage) GetOrderByUID(ctx context.Context, orderUID string) (*models.Order, error ) {
+func (m *mockStorage) GetOrderByUID(ctx context.Context, orderUID string) (*models.Order, error) {
 	if orderUID == "exist" {
 		return &models.Order{OrderUID: "exists"}, nil
 	}
@@ -49,8 +47,7 @@ func (m *mockStorage) AddOrderIfNotExists(ctx context.Context, order *models.Ord
 	return nil
 }
 
-
-// Тестирование подключения к базе 
+// TestTestDBHandle verifies the database health-check endpoint returns 200.
 func TestTestDBHandle(t *testing.T) {
 	cfg := &config.Config{}
 	cache := cache.NewCache(10)
@@ -60,7 +57,6 @@ func TestTestDBHandle(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest("GET", "/", nil)
 
-
 	handler.TestDBHandle(c)
 
 	if w.Code != http.StatusOK {
@@ -68,7 +64,7 @@ func TestTestDBHandle(t *testing.T) {
 	}
 }
 
-// Тестирование получения заказа по UID из базы
+// TestGetOrderByUIDHandle tests fetching an order by UID: existing returns 200, missing returns 404.
 func TestGetOrderByUIDHandle(t *testing.T) {
 	cfg := &config.Config{}
 	cache := cache.NewCache(10)
@@ -97,7 +93,7 @@ func TestGetOrderByUIDHandle(t *testing.T) {
 	}
 }
 
-// Тестирование получения заказа по UID из кэша
+// TestGetOrderByUIDHandleFromCache verifies that a cached order is served without hitting the database.
 func TestGetOrderByUIDHandleFromCache(t *testing.T) {
 	cfg := &config.Config{}
 	cache := cache.NewCache(10)
@@ -110,7 +106,7 @@ func TestGetOrderByUIDHandleFromCache(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest("GET", "/", nil)
 	c.Params = []gin.Param{{Key: "uid", Value: "cached"}}
-	
+
 	handler.GetOrderByUIDHandle(c)
 
 	if w.Code != http.StatusOK {

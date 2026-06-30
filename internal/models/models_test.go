@@ -6,10 +6,10 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-// Тестирование загрузки из файла
+// TestLoadOrderFromFile tests loading valid, missing, and malformed JSON order files.
 func TestLoadOrderFromFile(t *testing.T) {
 	if _, err := LoadOrderFromFile("../../testdata/order1.json"); err != nil {
-		t.Errorf("Failed to load order from file: %v" ,err)
+		t.Errorf("Failed to load order from file: %v", err)
 	}
 
 	if _, err := LoadOrderFromFile("../../testdata/order_no.json"); err == nil {
@@ -22,13 +22,13 @@ func TestLoadOrderFromFile(t *testing.T) {
 
 }
 
-// Тестирование валидации заказа
+// TestOrderValidation verifies that the validator catches invalid orders and accepts valid ones.
 func TestOrderValidation(t *testing.T) {
 	val := validator.New()
 
 	validOrder, err := LoadOrderFromFile("../../testdata/order1.json")
 	if err != nil {
-		t.Errorf("Failed to load order from file: %v" ,err)
+		t.Errorf("Failed to load order from file: %v", err)
 	}
 
 	if err := val.Struct(validOrder); err != nil {

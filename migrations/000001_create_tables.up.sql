@@ -12,7 +12,6 @@ CREATE TABLE IF NOT EXISTS orders (
     oof_shard VARCHAR(10) NOT NULL
 );
 
-
 CREATE TABLE IF NOT EXISTS delivery (
     order_uid UUID PRIMARY KEY REFERENCES orders(order_uid) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
@@ -23,7 +22,6 @@ CREATE TABLE IF NOT EXISTS delivery (
     region VARCHAR(100) NOT NULL,
     email VARCHAR(100) NOT NULL
 );
-
 
 CREATE TABLE IF NOT EXISTS payment (
     order_uid UUID PRIMARY KEY REFERENCES orders(order_uid) ON DELETE CASCADE,
@@ -38,7 +36,6 @@ CREATE TABLE IF NOT EXISTS payment (
     goods_total INTEGER NOT NULL,
     custom_fee INTEGER NOT NULL
 );
-
 
 CREATE TABLE IF NOT EXISTS item (
     id SERIAL PRIMARY KEY,
@@ -56,118 +53,7 @@ CREATE TABLE IF NOT EXISTS item (
     status INTEGER NOT NULL
 );
 
-
 CREATE INDEX IF NOT EXISTS idx_orders_order_uid ON orders(order_uid);
 CREATE INDEX IF NOT EXISTS idx_delivery_order_uid ON delivery(order_uid);
 CREATE INDEX IF NOT EXISTS idx_payment_order_uid ON payment(order_uid);
 CREATE INDEX IF NOT EXISTS idx_item_order_uid ON item(order_uid);
-
-
-
-
-INSERT INTO orders (
-    order_uid,
-    track_number,
-    entry,
-    locale,
-    internal_signature,
-    customer_id,
-    delivery_service,
-    shardkey,
-    sm_id,
-    date_created,
-    oof_shard
-) VALUES (
-    '8864b7f1-c455-4300-bfdc-d339429c2099',
-    'WBILMTESTTRACK',
-    'WBIL',
-    'en',
-    '',
-    'test',
-    'meest',
-    '9',
-    99,
-    '2021-11-26T06:22:19Z',
-    '1'
-)
-ON CONFLICT (order_uid) DO NOTHING;
-
-
-INSERT INTO delivery (
-    order_uid,
-    name,
-    phone,
-    zip,
-    city,
-    address,
-    region,
-    email
-) VALUES (
-    '8864b7f1-c455-4300-bfdc-d339429c2099',
-    'Test Testov',
-    '+9720000000',
-    '2639809',
-    'Kiryat Mozkin',
-    'Ploshad Mira 15',
-    'Kraiot',
-    'test@gmail.com'
-)
-ON CONFLICT DO NOTHING;
-
-
-INSERT INTO payment (
-    order_uid,
-    transaction,
-    request_id,
-    currency,
-    provider,
-    amount,
-    payment_dt,
-    bank,
-    delivery_cost,
-    goods_total,
-    custom_fee
-) VALUES (
-    '8864b7f1-c455-4300-bfdc-d339429c2099',
-    '8864b7f1-c455-4300-bfdc-d339429c2099',
-    '',
-    'USD',
-    'wbpay',
-    1817,
-    1637907727,
-    'alpha',
-    1500,
-    317,
-    0
-)
-ON CONFLICT DO NOTHING;
-
-
-INSERT INTO item (
-    order_uid,
-    chrt_id,
-    track_number,
-    price,
-    rid,
-    name,
-    sale,
-    size,
-    total_price,
-    nm_id,
-    brand,
-    status
-) VALUES (
-    '8864b7f1-c455-4300-bfdc-d339429c2099',
-    9934930,
-    'WBILMTESTTRACK',
-    453,
-    'ab4219087a764ae0btest',
-    'Mascaras',
-    30,
-    '0',
-    317,
-    2389212,
-    'Vivienne Sabo',
-    202
-)
-ON CONFLICT DO NOTHING;
