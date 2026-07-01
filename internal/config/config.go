@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 
@@ -22,9 +23,9 @@ type Config struct {
 	KafkaTopic    string
 }
 
-// Load reads .env file and returns a populated Config.
-func Load() (*Config, error) {
-	if err := godotenv.Load(); err != nil {
+// Load reads the given env file and returns Config.
+func Load(path string) (*Config, error) {
+	if err := godotenv.Overload(path); err != nil {
 		return nil, err
 	}
 
@@ -34,8 +35,11 @@ func Load() (*Config, error) {
 	if err != nil {
 		cacheCapacity = 100
 	}
+	if cacheCapacity <= 0 {
+		return nil, fmt.Errorf("CACHE_CAPACITY must be more than 0")
+	}
 
-	return &Config{
+	cfg := &Config{
 		HTTPPort:      os.Getenv("HTTP_PORT"),
 		CacheCapacity: cacheCapacity,
 		DBHost:        os.Getenv("DB_HOST"),
@@ -47,5 +51,48 @@ func Load() (*Config, error) {
 		MigrationDir:  os.Getenv("MIGRATION_DIR"),
 		KafkaBrokers:  os.Getenv("KAFKA_BROKERS"),
 		KafkaTopic:    os.Getenv("KAFKA_TOPIC"),
-	}, nil
+	}
+
+	if cfg.HTTPPort == "" {
+		cfg.HTTPPort = "8080"
+	}
+	if cfg.DBHost == "" {
+		return nil, fmt.Errorf("DB_HOST is required")
+	}
+	if cfg.DBPort == "" {
+		return nil, fmt.Errorf("DB_PORT is required")
+	}
+	if cfg.DBUser == "" {
+		return nil, fmt.Errorf("DB_USER is required")
+	}
+	if cfg.DBPass == "" {
+		return nil, fmt.Errorf("DB_PASSWORD is required")
+	}
+	if cfg.DBName == "" {
+		return nil, fmt.Errorf("DB_NAME is required")
+	}
+	if cfg.KafkaBrokers == "" {
+		return nil, fmt.Errorf("KAFKA_BROKERS is required")
+	}
+	if cfg.KafkaTopic == "" {
+		return nil, fmt.Errorf("KAFKA_TOPIC is required")
+	}
+
+	httpPort, err := strconv.Atoi(cfg.HTTPPort)
+	if err != nil {
+		return nil, fmt.Errorf("HTTP_PORT must be number")
+	}
+	if httpPort < 1024 || httpPort > 65535 {
+		return nil, fmt.Errorf("HTTP_PORT must be between 1024 and 65535")
+	}
+
+	dbPort, err := strconv.Atoi(cfg.DBPort)
+	if err != nil {
+		return nil, fmt.Errorf("DB_PORT must be number")
+	}
+	if dbPort < 1024 || dbPort > 65535 {
+		return nil, fmt.Errorf("DB_PORT must be between 1024 and 65535")
+	}
+
+	return cfg, nil
 }
