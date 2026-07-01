@@ -15,7 +15,7 @@ import (
 	"github.com/venexene/gorder/internal/config"
 	"github.com/venexene/gorder/internal/database"
 	"github.com/venexene/gorder/internal/handlers"
-	consumer "github.com/venexene/gorder/internal/kafka"
+	"github.com/venexene/gorder/internal/consumer"
 )
 
 func main() {
@@ -69,7 +69,7 @@ func main() {
 	router.LoadHTMLGlob("web/templates/*")
 	router.Static("/static", "./web/static")
 
-	handler := handlers.NewHandler(storage, cfg, cache)
+	handler := handlers.NewHandler(storage, cache, cfg.KafkaBrokers)
 
 	router.GET("/api/server_check", func(c *gin.Context) {
 		handler.TestServerHandle(c)

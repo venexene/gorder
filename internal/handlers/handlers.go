@@ -12,23 +12,22 @@ import (
 	"github.com/segmentio/kafka-go"
 
 	"github.com/venexene/gorder/internal/cache"
-	"github.com/venexene/gorder/internal/config"
 	"github.com/venexene/gorder/internal/database"
 )
 
 // Handler holds dependencies for HTTP request handlers.
 type Handler struct {
 	storage database.StorageInterface
-	cfg     *config.Config
 	cache   *cache.Cache
+	kafkaBrokers string
 }
 
 // NewHandler creates a Handler with the given dependencies.
-func NewHandler(storage database.StorageInterface, cfg *config.Config, cache *cache.Cache) *Handler {
+func NewHandler(storage database.StorageInterface, cache *cache.Cache, kafkaBrokers string) *Handler {
 	return &Handler{
 		storage: storage,
-		cfg:     cfg,
 		cache:   cache,
+		kafkaBrokers: kafkaBrokers,
 	}
 }
 
@@ -57,11 +56,10 @@ func (h *Handler) TestDBHandle(c *gin.Context) {
 
 // TestKafkaHandle checks connectivity to the Kafka broker.
 func (h *Handler) TestKafkaHandle(c *gin.Context) {
-	kafkaBrokers := h.cfg.KafkaBrokers
 	ctxKafka, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	connKafka, err := kafka.DialContext(ctxKafka, "tcp", kafkaBrokers)
+	connKafka, err := kafka.DialContext(ctxKafka, "tcp", h.kafkaBrokers)
 	if err != nil {
 		log.Printf("Failed to test Kafka: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -74,7 +72,7 @@ func (h *Handler) TestKafkaHandle(c *gin.Context) {
 	broker := connKafka.Broker()
 	c.JSON(http.StatusOK, gin.H{
 		"status":    "Kafka definetly works",
-		"brokers":   kafkaBrokers,
+		"brokers":   h.kafkaBrokers,
 		"broker_id": broker.ID,
 	})
 }

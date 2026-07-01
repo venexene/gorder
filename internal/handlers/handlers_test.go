@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -10,7 +11,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/venexene/gorder/internal/cache"
-	"github.com/venexene/gorder/internal/config"
 	"github.com/venexene/gorder/internal/models"
 )
 
@@ -22,7 +22,7 @@ func (m *mockStorage) TestDB(ctx context.Context) (string, error) {
 
 func (m *mockStorage) GetOrderByUID(ctx context.Context, orderUID string) (*models.Order, error) {
 	if orderUID == "exist" {
-		return &models.Order{OrderUID: "exists"}, nil
+		return &models.Order{OrderUID: "exist", TrackNumber: "TRACK"}, nil
 	}
 	return nil, pgx.ErrNoRows
 }
@@ -47,12 +47,32 @@ func (m *mockStorage) AddOrderIfNotExists(ctx context.Context, order *models.Ord
 	return nil
 }
 
-// TestTestDBHandle verifies the database health-check endpoint returns 200.
-func TestTestDBHandle(t *testing.T) {
-	cfg := &config.Config{}
-	cache := cache.NewCache(10)
-	handler := NewHandler(&mockStorage{}, cfg, cache)
+func newTestHandler() *Handler {
+	return NewHandler(&mockStorage{}, cache.NewCache(10), "")
+}
 
+// TestServerHandle checks the server health-check endpoint.
+func TestServerHandle(t *testing.T) {
+	handler := newTestHandler()
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("GET", "/", nil)
+
+	handler.TestServerHandle(c)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+	var body map[string]string
+	json.NewDecoder(w.Body).Decode(&body)
+	if body["status"] != "Server definetly works" {
+		t.Errorf("unexpected status: %s", body["status"])
+	}
+}
+
+// TestDBHandle checks the database health-check endpoint.
+func TestDBHandle(t *testing.T) {
+	handler := newTestHandler()
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest("GET", "/", nil)
@@ -60,16 +80,32 @@ func TestTestDBHandle(t *testing.T) {
 	handler.TestDBHandle(c)
 
 	if w.Code != http.StatusOK {
-		t.Errorf("Expected status 200, but got %d", w.Code)
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+	var body map[string]string
+	json.NewDecoder(w.Body).Decode(&body)
+	if body["status"] != "Database works" {
+		t.Errorf("unexpected status: %s", body["status"])
 	}
 }
 
-// TestGetOrderByUIDHandle tests fetching an order by UID: existing returns 200, missing returns 404.
-func TestGetOrderByUIDHandle(t *testing.T) {
-	cfg := &config.Config{}
-	cache := cache.NewCache(10)
-	handler := NewHandler(&mockStorage{}, cfg, cache)
+// TestKafkaHandle_Failure checks unreachable broker.
+func TestKafkaHandle_Failure(t *testing.T) {
+	handler := NewHandler(&mockStorage{}, cache.NewCache(10), "localhost:19999")
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("GET", "/", nil)
 
+	handler.TestKafkaHandle(c)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", w.Code)
+	}
+}
+
+// TestGetOrderByUIDHandle_Existing checks known UID.
+func TestGetOrderByUIDHandle_Existing(t *testing.T) {
+	handler := newTestHandler()
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest("GET", "/", nil)
@@ -78,38 +114,86 @@ func TestGetOrderByUIDHandle(t *testing.T) {
 	handler.GetOrderByUIDHandle(c)
 
 	if w.Code != http.StatusOK {
-		t.Errorf("Expected status 200, but got %d", w.Code)
+		t.Errorf("expected 200, got %d", w.Code)
 	}
+	var order models.Order
+	json.NewDecoder(w.Body).Decode(&order)
+	if order.OrderUID != "exist" {
+		t.Errorf("expected OrderUID 'exist', got %s", order.OrderUID)
+	}
+	if order.TrackNumber != "TRACK" {
+		t.Errorf("expected TrackNumber 'TRACK', got %s", order.TrackNumber)
+	}
+}
 
-	w = httptest.NewRecorder()
-	c, _ = gin.CreateTestContext(w)
+// TestGetOrderByUIDHandle_Missing checks unknown UID.
+func TestGetOrderByUIDHandle_Missing(t *testing.T) {
+	handler := newTestHandler()
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest("GET", "/", nil)
 	c.Params = []gin.Param{{Key: "uid", Value: "nosuchorder"}}
 
 	handler.GetOrderByUIDHandle(c)
 
 	if w.Code != http.StatusNotFound {
-		t.Errorf("Expected status 404, but got ")
+		t.Errorf("expected 404, got %d", w.Code)
 	}
 }
 
-// TestGetOrderByUIDHandleFromCache verifies that a cached order is served without hitting the database.
-func TestGetOrderByUIDHandleFromCache(t *testing.T) {
-	cfg := &config.Config{}
-	cache := cache.NewCache(10)
-	handler := NewHandler(&mockStorage{}, cfg, cache)
+// TestGetOrderByUIDHandle_EmptyUID checks empty UID.
+func TestGetOrderByUIDHandle_EmptyUID(t *testing.T) {
+	handler := newTestHandler()
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("GET", "/", nil)
+	c.Params = []gin.Param{{Key: "uid", Value: ""}}
 
-	testOrder := &models.Order{OrderUID: "cached"}
-	cache.Set(testOrder)
+	handler.GetOrderByUIDHandle(c)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", w.Code)
+	}
+}
+
+// TestGetOrderByUIDHandle_CacheHit checks that a cached order  works without db query.
+func TestGetOrderByUIDHandle_CacheHit(t *testing.T) {
+	handler := newTestHandler()
+	testOrder := &models.Order{OrderUID: "cached-uid", TrackNumber: "CACHED"}
+	handler.cache.Set(testOrder)
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest("GET", "/", nil)
-	c.Params = []gin.Param{{Key: "uid", Value: "cached"}}
+	c.Params = []gin.Param{{Key: "uid", Value: "cached-uid"}}
 
 	handler.GetOrderByUIDHandle(c)
 
 	if w.Code != http.StatusOK {
-		t.Errorf("Expected status 200, but got %d", w.Code)
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+	var order models.Order
+	json.NewDecoder(w.Body).Decode(&order)
+	if order.TrackNumber != "CACHED" {
+		t.Errorf("expected TrackNumber 'CACHED', got %s", order.TrackNumber)
+	}
+}
+
+// TestGetAllOrdersUIDHandle checks UID list endpoint.
+func TestGetAllOrdersUIDHandle(t *testing.T) {
+	handler := newTestHandler()
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("GET", "/", nil)
+
+	handler.GetAllOrdersUIDHandle(c)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+	var body map[string][]string
+	json.NewDecoder(w.Body).Decode(&body)
+	if len(body["order_uids"]) != 2 {
+		t.Errorf("expected 2 UIDs, got %d", len(body["order_uids"]))
 	}
 }
