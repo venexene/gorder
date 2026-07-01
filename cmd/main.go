@@ -5,11 +5,12 @@ import (
 	"log"
 	"net/http"
 	"os/signal"
-	"strings"
 	"syscall"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/segmentio/kafka-go"
 
 	"github.com/venexene/gorder/internal/cache"
 	"github.com/venexene/gorder/internal/config"
@@ -49,17 +50,28 @@ func main() {
 		log.Printf("Populated cache with %d orders", cache.Size())
 	}
 
-	kafkaConsumer := consumer.NewConsumer(
-		strings.Split(cfg.KafkaBrokers, ","),
-		cfg.KafkaTopic,
+	reader := kafka.NewReader(kafka.ReaderConfig{
+		Brokers:  strings.Split(cfg.KafkaBrokers, ","),
+		Topic:    cfg.KafkaTopic,
+		MinBytes: 10e3,
+		MaxBytes: 10e6,
+		MaxWait:  time.Second,
+		Dialer: &kafka.Dialer{
+			Timeout:   10 * time.Second,
+			DualStack: true,
+		},
+		MaxAttempts: 3,
+	})
+	messageConsumer := consumer.NewConsumer(
+		reader,
 		storage,
 		cache,
 	)
-	defer kafkaConsumer.Close()
-	log.Println("Created Kafka consumer")
+	defer messageConsumer.Close()
+	log.Println("Created message consumer")
 
 	go func() {
-		kafkaConsumer.Consume(ctx)
+		messageConsumer.Consume(ctx)
 	}()
 	log.Printf("Started consume proccess for topic %s", cfg.KafkaTopic)
 

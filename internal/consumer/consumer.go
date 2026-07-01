@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
-	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/segmentio/kafka-go"
@@ -15,28 +14,22 @@ import (
 	"github.com/venexene/gorder/internal/models"
 )
 
+// MessageReader abstracts reading messages from a message broker.
+type MessageReader interface {
+	ReadMessage(ctx context.Context) (kafka.Message, error)
+	Close() error
+}
+
 // Consumer reads orders from a Kafka topic and persists them.
 type Consumer struct {
-	reader    *kafka.Reader
-	storage   *database.Storage
+	reader    MessageReader
+	storage   database.StorageInterface
 	validator *validator.Validate
 	cache     *cache.Cache
 }
 
-// NewConsumer creates a Kafka consumer for the given brokers and topic.
-func NewConsumer(brokers []string, topic string, storage *database.Storage, cache *cache.Cache) *Consumer {
-	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:  brokers,
-		Topic:    topic,
-		MinBytes: 10e3,
-		MaxBytes: 10e6,
-		MaxWait:  time.Second,
-		Dialer: &kafka.Dialer{
-			Timeout:   10 * time.Second,
-			DualStack: true,
-		},
-		MaxAttempts: 3,
-	})
+// NewConsumer creates a Consumer with the given reader, storage, and cache.
+func NewConsumer(reader MessageReader, storage database.StorageInterface, cache *cache.Cache) *Consumer {
 
 	validate := validator.New()
 
@@ -51,7 +44,7 @@ func NewConsumer(brokers []string, topic string, storage *database.Storage, cach
 // Consume starts reading messages from Kafka in a blocking loop until the context is cancelled.
 func (c *Consumer) Consume(ctx context.Context) {
 	for {
-		msg, err := c.reader.ReadMessage(ctx)
+		msg, err := c.readMessage(ctx)
 		if err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				log.Println("Consumer: shutting down")
@@ -62,28 +55,45 @@ func (c *Consumer) Consume(ctx context.Context) {
 		}
 		log.Printf("Received message: %s", string(msg.Value))
 
-		var order models.Order
+		order, err := c.processMessage(msg)
 
-		if err := json.Unmarshal(msg.Value, &order); err != nil {
-			log.Printf("Failed to unmarshal message: %v", err)
+		if err != nil {
+			log.Printf("Failed to process message: %v", err)
 			continue
 		}
 
-		if err := c.validator.Struct(order); err != nil {
-			log.Printf("Failed to validate: %v", err)
-			continue
-		}
-
-		if err := c.storage.AddOrderIfNotExists(ctx, &order); err != nil {
+		if err := c.storage.AddOrderIfNotExists(ctx, order); err != nil {
 			log.Printf("Failed to add order: %v", err)
 		} else {
 			log.Printf("Order saved with UID %s", order.OrderUID)
-			c.cache.Set(&order)
+			c.cache.Set(order)
 		}
 	}
 }
 
-// Close shuts down the underlying Kafka reader.
+func (c *Consumer) readMessage(ctx context.Context) (kafka.Message, error) {
+	msg, err := c.reader.ReadMessage(ctx)
+	if err != nil {
+		return kafka.Message{}, err
+	}
+	return msg, nil
+}
+
+func (c *Consumer) processMessage(msg kafka.Message) (*models.Order, error) {
+	order := &models.Order{}
+
+	if err := json.Unmarshal(msg.Value, order); err != nil {
+		return nil, err
+	}
+
+	if err := c.validator.Struct(order); err != nil {
+		return nil, err
+	}
+
+	return order, nil
+}
+
+// Close shuts down Kafka reader.
 func (c *Consumer) Close() error {
 	return c.reader.Close()
 }
