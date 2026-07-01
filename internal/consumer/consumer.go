@@ -28,9 +28,8 @@ type Consumer struct {
 	cache     *cache.Cache
 }
 
-// NewConsumer creates a Consumer with the given reader, storage, and cache.
+// NewConsumer creates a Consumer.
 func NewConsumer(reader MessageReader, storage database.StorageInterface, cache *cache.Cache) *Consumer {
-
 	validate := validator.New()
 
 	return &Consumer{

@@ -5,8 +5,8 @@ import (
 	"log"
 	"net/http"
 	"os/signal"
-	"syscall"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -14,9 +14,9 @@ import (
 
 	"github.com/venexene/gorder/internal/cache"
 	"github.com/venexene/gorder/internal/config"
+	"github.com/venexene/gorder/internal/consumer"
 	"github.com/venexene/gorder/internal/database"
 	"github.com/venexene/gorder/internal/handlers"
-	"github.com/venexene/gorder/internal/consumer"
 )
 
 func main() {

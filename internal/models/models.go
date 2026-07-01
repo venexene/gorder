@@ -49,9 +49,9 @@ type Payment struct {
 	Amount       int    `json:"amount" validate:"required,min=1"`
 	PaymentDt    uint64 `json:"payment_dt" validate:"required"`
 	Bank         string `json:"bank" validate:"required,alphanum,max=20"`
-	DeliveryCost uint   `json:"delivery_cost" validate:"required"`
-	GoodsTotal   uint   `json:"goods_total" validate:"required"`
-	CustomFee    uint   `json:"custom_fee" validate:"required"`
+	DeliveryCost uint   `json:"delivery_cost" validate:"gte=0"`
+	GoodsTotal   uint   `json:"goods_total" validate:"gte=0"`
+	CustomFee    uint   `json:"custom_fee" validate:"gte=0"`
 }
 
 // Item represents a single product within an order.
@@ -63,12 +63,12 @@ type Item struct {
 	Price       uint   `json:"price" validate:"required,min=1"`
 	Rid         string `json:"rid" validate:"required,alphanum,max=50"`
 	Name        string `json:"name" validate:"required,max=50"`
-	Sale        uint   `json:"sale" validate:"required"`
+	Sale        uint   `json:"sale" validate:"gte=0"`
 	Size        string `json:"size" validate:"required,alphanum,max=10"`
-	TotalPrice  uint   `json:"total_price" validate:"required"`
+	TotalPrice  uint   `json:"total_price" validate:"gte=0"`
 	NmID        uint   `json:"nm_id" validate:"required,min=1"`
 	Brand       string `json:"brand" validate:"required,max=50"`
-	Status      uint   `json:"status" validate:"required,max=999"`
+	Status      uint   `json:"status" validate:"gte=0,max=999"`
 }
 
 // LoadOrderFromFile reads and validates an Order from a JSON file.

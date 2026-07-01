@@ -17,16 +17,16 @@ import (
 
 // Handler holds dependencies for HTTP request handlers.
 type Handler struct {
-	storage database.StorageInterface
-	cache   *cache.Cache
+	storage      database.StorageInterface
+	cache        *cache.Cache
 	kafkaBrokers string
 }
 
 // NewHandler creates a Handler with the given dependencies.
 func NewHandler(storage database.StorageInterface, cache *cache.Cache, kafkaBrokers string) *Handler {
 	return &Handler{
-		storage: storage,
-		cache:   cache,
+		storage:      storage,
+		cache:        cache,
 		kafkaBrokers: kafkaBrokers,
 	}
 }
