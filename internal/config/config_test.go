@@ -20,6 +20,7 @@ func makeValidEnv() string {
 	return strings.Join([]string{
 		"HTTP_PORT=9090",
 		"CACHE_CAPACITY=200",
+		"LOG_FORMAT=text",
 		"DB_HOST=localhost",
 		"DB_PORT=5433",
 		"DB_USER=testuser",
@@ -39,7 +40,7 @@ func TestLoad_Full(t *testing.T) {
 
 	cfg, err := Load(path)
 	if err != nil {
-		t.Fatalf("Load failed: %v", err)
+		t.Fatalf("load failed: %v", err)
 	}
 
 	if cfg.HTTPPort != "9090" {
@@ -47,6 +48,9 @@ func TestLoad_Full(t *testing.T) {
 	}
 	if cfg.CacheCapacity != 200 {
 		t.Errorf("CacheCapacity: want 200, got %d", cfg.CacheCapacity)
+	}
+	if cfg.LogFormat != "text" {
+		t.Errorf("LogFormat: want text, got %s", cfg.LogFormat)
 	}
 	if cfg.DBHost != "localhost" {
 		t.Errorf("DBHost: want localhost, got %s", cfg.DBHost)
@@ -92,7 +96,7 @@ func TestLoad_HTTPPortDefault(t *testing.T) {
 
 	cfg, err := Load(path)
 	if err != nil {
-		t.Fatalf("Load failed: %v", err)
+		t.Fatalf("load failed: %v", err)
 	}
 	if cfg.HTTPPort != "8080" {
 		t.Errorf("HTTPPort: want 8080, got %s", cfg.HTTPPort)
@@ -190,10 +194,45 @@ func TestLoad_CacheCapacityValidation(t *testing.T) {
 				return
 			}
 			if err != nil {
-				t.Fatalf("Load failed: %v", err)
+				t.Fatalf("load failed: %v", err)
 			}
 			if cfg.CacheCapacity != tt.wantDefault {
 				t.Errorf("CacheCapacity: want %d, got %d", tt.wantDefault, cfg.CacheCapacity)
+			}
+		})
+	}
+}
+
+// TestLoad_LogFormatValidation checks that invalid log format values are rejected.
+func TestLoad_LogFormatValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		wantErr string
+	}{
+		{name: "text accepted", value: "text", wantErr: ""},
+		{name: "json accepted", value: "json", wantErr: ""},
+		{name: "invalid", value: "xml", wantErr: "LOG_FORMAT"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			content := makeValidEnv() + "\nLOG_FORMAT=" + tt.value
+			path := writeEnvFile(t, dir, content)
+
+			_, err := Load(path)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error should contain %q, got %q", tt.wantErr, err.Error())
 			}
 		})
 	}

@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"math/rand/v2"
 	"os"
 	"path/filepath"
@@ -21,23 +21,25 @@ import (
 func loadOrderFromFile(path string) (*models.Order, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read file %s: %v", path, err)
+		return nil, fmt.Errorf("failed to read file %s: %v", path, err)
 	}
 
 	var order models.Order
 	if err := json.Unmarshal(data, &order); err != nil {
-		return nil, fmt.Errorf("Failed to unmarshal JSON: %v", err)
+		return nil, fmt.Errorf("failed to unmarshal JSON: %v", err)
 	}
 
 	validate := validator.New()
 	if err := validate.Struct(order); err != nil {
-		return nil, fmt.Errorf("Failed to validate order: %v", err)
+		return nil, fmt.Errorf("failed to validate order: %v", err)
 	}
 
 	return &order, nil
 }
 
 func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
 	kafkaBrokers := []string{"kafka:9092"}
 	topic := "wbl0_orders"
 	writer := &kafka.Writer{
@@ -49,7 +51,7 @@ func main() {
 		order := generateRandomOrder()
 		message, err := json.Marshal(order)
 		if err != nil {
-			log.Printf("Failed to marshal order: %v", err)
+			logger.Error("failed to marshal order", "error", err)
 			continue
 		}
 		err = writer.WriteMessages(context.Background(),
@@ -60,9 +62,10 @@ func main() {
 		)
 
 		if err != nil {
-			log.Fatalf("Failed to write message: %v", err)
+			logger.Error("failed to write message", "error", err)
+			os.Exit(1)
 		} else {
-			log.Printf("Message successfully sent to Kafka")
+			logger.Debug("message sent", "order_uid", order.OrderUID)
 		}
 
 		time.Sleep(1 * time.Second)
@@ -71,12 +74,12 @@ func main() {
 		filename := filepath.Join("testdata", fmt.Sprintf("order%d.json", i))
 		order, err := loadOrderFromFile(filename)
 		if err != nil {
-			log.Printf("Failed to marshal order: %v", err)
+			logger.Error("failed to load order from file", "error", err)
 			continue
 		}
 		message, err := json.Marshal(order)
 		if err != nil {
-			log.Printf("Failed to marshal order: %v", err)
+			logger.Error("failed to marshal order", "error", err)
 			continue
 		}
 		err = writer.WriteMessages(context.Background(),
@@ -87,9 +90,10 @@ func main() {
 		)
 
 		if err != nil {
-			log.Fatalf("Failed to write message: %v", err)
+			logger.Error("failed to write message", "error", err)
+			os.Exit(1)
 		} else {
-			log.Printf("Message successfully sent to Kafka")
+			logger.Debug("message sent", "order_uid", order.OrderUID)
 		}
 
 		time.Sleep(1 * time.Second)

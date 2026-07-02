@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"sync"
 	"testing"
 	"time"
@@ -123,7 +124,8 @@ func validOrderJSON() []byte {
 
 // TestProcessMessage_Valid checks that valid JSON is parsed into an Order.
 func TestProcessMessage_Valid(t *testing.T) {
-	c := NewConsumer(nil, nil, nil)
+	logger := slog.New(slog.DiscardHandler)
+	c := NewConsumer(nil, nil, nil, logger)
 	msg := kafka.Message{Value: validOrderJSON()}
 
 	order, err := c.processMessage(msg)
@@ -140,7 +142,8 @@ func TestProcessMessage_Valid(t *testing.T) {
 
 // TestProcessMessage_InvalidJSON checks that broken JSON returns an error.
 func TestProcessMessage_InvalidJSON(t *testing.T) {
-	c := NewConsumer(nil, nil, nil)
+	logger := slog.New(slog.DiscardHandler)
+	c := NewConsumer(nil, nil, nil, logger)
 	msg := kafka.Message{Value: []byte("not json")}
 
 	_, err := c.processMessage(msg)
@@ -151,7 +154,8 @@ func TestProcessMessage_InvalidJSON(t *testing.T) {
 
 // TestProcessMessage_ValidationFailed checks that an order missing required fields fails validation.
 func TestProcessMessage_ValidationFailed(t *testing.T) {
-	c := NewConsumer(nil, nil, nil)
+	logger := slog.New(slog.DiscardHandler)
+	c := NewConsumer(nil, nil, nil, logger)
 	msg := kafka.Message{Value: []byte(
 		`{"order_uid":"x","track_number":"t","entry":"e","locale":"en",` +
 			`"customer_id":"c","delivery_service":"d","shardkey":"1","sm_id":1,` +
@@ -174,9 +178,10 @@ func TestConsume_Successful(t *testing.T) {
 	reader := newMockReader()
 	reader.AddMessage(kafka.Message{Value: validOrderJSON()})
 
+	logger := slog.New(slog.DiscardHandler)
 	storage := newMockStorage()
-	cc := cache.NewCache(10)
-	c := NewConsumer(reader, storage, cc)
+	cc := cache.NewCache(10, logger)
+	c := NewConsumer(reader, storage, cc, logger)
 
 	c.Consume(context.Background())
 
@@ -198,8 +203,9 @@ func TestConsume_SkipInvalid(t *testing.T) {
 	reader.AddMessage(kafka.Message{Value: []byte("not json")})
 	reader.AddMessage(kafka.Message{Value: validOrderJSON()})
 
+	logger := slog.New(slog.DiscardHandler)
 	storage := newMockStorage()
-	c := NewConsumer(reader, storage, cache.NewCache(10))
+	c := NewConsumer(reader, storage, cache.NewCache(10, logger), logger)
 
 	c.Consume(context.Background())
 
@@ -213,10 +219,11 @@ func TestConsume_Duplicate(t *testing.T) {
 	reader := newMockReader()
 	reader.AddMessage(kafka.Message{Value: validOrderJSON()})
 
+	logger := slog.New(slog.DiscardHandler)
 	storage := newMockStorage()
 	storage.addOrderErr = errors.New("already exists")
-	cc := cache.NewCache(10)
-	c := NewConsumer(reader, storage, cc)
+	cc := cache.NewCache(10, logger)
+	c := NewConsumer(reader, storage, cc, logger)
 
 	c.Consume(context.Background())
 
@@ -232,8 +239,9 @@ func TestConsume_GracefulShutdown(t *testing.T) {
 	reader.AddMessage(kafka.Message{Value: validOrderJSON()})
 	reader.AddMessage(kafka.Message{Value: validOrderJSON()})
 
+	logger := slog.New(slog.DiscardHandler)
 	storage := newMockStorage()
-	c := NewConsumer(reader, storage, cache.NewCache(10))
+	c := NewConsumer(reader, storage, cache.NewCache(10, logger), logger)
 
 	c.Consume(context.Background())
 

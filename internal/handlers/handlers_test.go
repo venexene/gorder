@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -48,7 +49,8 @@ func (m *mockStorage) AddOrderIfNotExists(ctx context.Context, order *models.Ord
 }
 
 func newTestHandler() *Handler {
-	return NewHandler(&mockStorage{}, cache.NewCache(10), "")
+	logger := slog.New(slog.DiscardHandler)
+	return NewHandler(&mockStorage{}, cache.NewCache(10, logger), logger, "")
 }
 
 // TestServerHandle checks the server health-check endpoint.
@@ -91,7 +93,8 @@ func TestDBHandle(t *testing.T) {
 
 // TestKafkaHandle_Failure checks unreachable broker.
 func TestKafkaHandle_Failure(t *testing.T) {
-	handler := NewHandler(&mockStorage{}, cache.NewCache(10), "localhost:19999")
+	logger := slog.New(slog.DiscardHandler)
+	handler := NewHandler(&mockStorage{}, cache.NewCache(10, logger), logger, "localhost:19999")
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest("GET", "/", nil)

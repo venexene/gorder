@@ -75,17 +75,17 @@ type Item struct {
 func LoadOrderFromFile(path string) (*Order, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read file %s: %v", path, err)
+		return nil, fmt.Errorf("failed to read file %s: %v", path, err)
 	}
 
 	var order Order
 	if err := json.Unmarshal(data, &order); err != nil {
-		return nil, fmt.Errorf("Failed to unmarshal JSON: %v", err)
+		return nil, fmt.Errorf("failed to unmarshal JSON: %v", err)
 	}
 
 	validate := validator.New()
 	if err := validate.Struct(order); err != nil {
-		return nil, fmt.Errorf("Failed to validate order: %v", err)
+		return nil, fmt.Errorf("failed to validate order: %v", err)
 	}
 
 	return &order, nil

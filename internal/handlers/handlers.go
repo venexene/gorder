@@ -3,7 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -19,14 +19,16 @@ import (
 type Handler struct {
 	storage      database.StorageInterface
 	cache        *cache.Cache
+	logger		 *slog.Logger
 	kafkaBrokers string
 }
 
 // NewHandler creates a Handler with the given dependencies.
-func NewHandler(storage database.StorageInterface, cache *cache.Cache, kafkaBrokers string) *Handler {
+func NewHandler(storage database.StorageInterface, cache *cache.Cache, logger *slog.Logger, kafkaBrokers string) *Handler {
 	return &Handler{
 		storage:      storage,
 		cache:        cache,
+		logger:		  logger,
 		kafkaBrokers: kafkaBrokers,
 	}
 }
@@ -42,7 +44,7 @@ func (h *Handler) TestServerHandle(c *gin.Context) {
 func (h *Handler) TestDBHandle(c *gin.Context) {
 	res, err := h.storage.TestDB(c.Request.Context())
 	if err != nil {
-		log.Printf("Failed to test database: %v", err)
+		h.logger.Error("failed to test database", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to connect database",
 		})
@@ -61,9 +63,9 @@ func (h *Handler) TestKafkaHandle(c *gin.Context) {
 
 	connKafka, err := kafka.DialContext(ctxKafka, "tcp", h.kafkaBrokers)
 	if err != nil {
-		log.Printf("Failed to test Kafka: %v", err)
+		h.logger.Error("failed to test consumer", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to connect Kafka",
+			"error": "Failed to connect consumer",
 		})
 		return
 	}
@@ -71,7 +73,7 @@ func (h *Handler) TestKafkaHandle(c *gin.Context) {
 
 	broker := connKafka.Broker()
 	c.JSON(http.StatusOK, gin.H{
-		"status":    "Kafka definetly works",
+		"status":    "Consumer definetly works",
 		"brokers":   h.kafkaBrokers,
 		"broker_id": broker.ID,
 	})
@@ -94,12 +96,13 @@ func (h *Handler) GetOrderByUIDHandle(c *gin.Context) {
 
 	order, err := h.storage.GetOrderByUID(c.Request.Context(), orderUID)
 	if err != nil {
-		log.Printf("Failed to get info by UID: %v", err)
 		if errors.Is(err, pgx.ErrNoRows) {
+			h.logger.Warn("order not found", "order_uid", orderUID)
 			c.JSON(http.StatusNotFound, gin.H{
 				"error": "Failed to find order",
 			})
 		} else {
+			h.logger.Error("failed to get info by uid", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": "Internal server error",
 			})
@@ -116,7 +119,7 @@ func (h *Handler) GetAllOrdersUIDHandle(c *gin.Context) {
 	orderUIDs, err := h.storage.GetAllOrdersUID(c.Request.Context())
 
 	if err != nil {
-		log.Printf("Failed to get UIDs: %v", err)
+		h.logger.Error("failed to get uids", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to get order UIDs",
 		})
@@ -133,7 +136,7 @@ func (h *Handler) AllOrdersPageHandle(c *gin.Context) {
 	orderUIDs, err := h.storage.GetAllOrdersUID(c.Request.Context())
 
 	if err != nil {
-		log.Printf("Failed to get UIDs: %v", err)
+		h.logger.Error("failed to load orders", "error", err)
 		c.HTML(http.StatusInternalServerError, "error.html", gin.H{
 			"error": "Failed to load orders",
 		})
@@ -163,7 +166,7 @@ func (h *Handler) OrderPageHandle(c *gin.Context) {
 
 	order, err := h.storage.GetOrderByUID(c.Request.Context(), orderUID)
 	if err != nil {
-		log.Printf("Failed to get info by UID: %v", err)
+		h.logger.Error("failed to get info by uid", "error", err)
 		if errors.Is(err, pgx.ErrNoRows) {
 			c.HTML(http.StatusNotFound, "error.html", gin.H{
 				"error": "Orders not found",

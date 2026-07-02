@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
+	"log/slog"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/segmentio/kafka-go"
@@ -20,16 +20,17 @@ type MessageReader interface {
 	Close() error
 }
 
-// Consumer reads orders from a Kafka topic and persists them.
+// Consumer reads orders from topic and persists them.
 type Consumer struct {
 	reader    MessageReader
 	storage   database.StorageInterface
 	validator *validator.Validate
 	cache     *cache.Cache
+	logger 	  *slog.Logger
 }
 
 // NewConsumer creates a Consumer.
-func NewConsumer(reader MessageReader, storage database.StorageInterface, cache *cache.Cache) *Consumer {
+func NewConsumer(reader MessageReader, storage database.StorageInterface, cache *cache.Cache, logger *slog.Logger) *Consumer {
 	validate := validator.New()
 
 	return &Consumer{
@@ -37,6 +38,7 @@ func NewConsumer(reader MessageReader, storage database.StorageInterface, cache 
 		storage:   storage,
 		validator: validate,
 		cache:     cache,
+		logger:	   logger,
 	}
 }
 
@@ -46,25 +48,24 @@ func (c *Consumer) Consume(ctx context.Context) {
 		msg, err := c.readMessage(ctx)
 		if err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				log.Println("Consumer: shutting down")
+				c.logger.Info("consumer shutting down")
 				return
 			}
-			log.Printf("Kafka failed to consume: %v", err)
+			c.logger.Error("failed to consume", "error", err)
 			continue
 		}
-		log.Printf("Received message: %s", string(msg.Value))
+		c.logger.Debug("recieved message", "message", string(msg.Value))
 
 		order, err := c.processMessage(msg)
-
 		if err != nil {
-			log.Printf("Failed to process message: %v", err)
+			c.logger.Error("failed to process message", "error", err)
 			continue
 		}
 
 		if err := c.storage.AddOrderIfNotExists(ctx, order); err != nil {
-			log.Printf("Failed to add order: %v", err)
+			c.logger.Error("failed to add order", "error", err)
 		} else {
-			log.Printf("Order saved with UID %s", order.OrderUID)
+			c.logger.Info("order saved", "order_uid", order.OrderUID)
 			c.cache.Set(order)
 		}
 	}
@@ -92,7 +93,7 @@ func (c *Consumer) processMessage(msg kafka.Message) (*models.Order, error) {
 	return order, nil
 }
 
-// Close shuts down Kafka reader.
+// Close shuts down consumer reader.
 func (c *Consumer) Close() error {
 	return c.reader.Close()
 }

@@ -3,7 +3,7 @@ package cache
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"sync"
 
 	"github.com/venexene/gorder/internal/database"
@@ -24,10 +24,11 @@ type Cache struct {
 	head     *cacheNode
 	tail     *cacheNode
 	mu       sync.RWMutex
+	logger	 *slog.Logger
 }
 
 // NewCache creates an LRU cache with the given maximum capacity.
-func NewCache(capacity int) *Cache {
+func NewCache(capacity int, logger *slog.Logger) *Cache {
 	elems := make(map[string]*cacheNode)
 
 	cache := Cache{
@@ -35,6 +36,7 @@ func NewCache(capacity int) *Cache {
 		elems:    elems,
 		head:     &cacheNode{},
 		tail:     &cacheNode{},
+		logger:	  logger,
 	}
 
 	cache.head.next = cache.tail
@@ -131,14 +133,14 @@ func (c *Cache) Size() int {
 func (c *Cache) Populate(ctx context.Context, storage *database.Storage) error {
 	uids, err := storage.GetRecentOrdersUID(ctx, c.capacity)
 	if err != nil {
-		return fmt.Errorf("Failed to get recent orders: %v", err)
+		return fmt.Errorf("failed to get recent orders: %v", err)
 	}
 
 	var loadCount int
 	for _, uid := range uids {
 		order, err := storage.GetOrderByUID(ctx, uid)
 		if err != nil {
-			log.Printf("Failed to load order %s into cache: %v", uid, err)
+			c.logger.Error("failed to load order into cache", "order_uid", uid, "error", err)
 			continue
 		}
 		c.Set(order)

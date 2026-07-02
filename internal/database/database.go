@@ -58,11 +58,11 @@ func CreatePool(ctx context.Context, cfg *config.Config) (*pgxpool.Pool, error) 
 
 	pool, err := pgxpool.New(poolCtx, connectionStr)
 	if err != nil {
-		return pool, fmt.Errorf("Failed to create pool: %v", err)
+		return pool, fmt.Errorf("failed to create pool: %v", err)
 	}
 
 	if err := pool.Ping(poolCtx); err != nil {
-		return pool, fmt.Errorf("Failed to ping database: %v", err)
+		return pool, fmt.Errorf("failed to ping database: %v", err)
 	}
 
 	return pool, nil
@@ -74,11 +74,11 @@ func (s *Storage) RunMigrations() error {
 
 	m, err := migrate.New(fmt.Sprintf("file://%s", s.migrationPath), connStr)
 	if err != nil {
-		return fmt.Errorf("Failed to init migrate: %v", err)
+		return fmt.Errorf("failed to init migrate: %v", err)
 	}
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		return fmt.Errorf("Failed to up migrate: %v", err)
+		return fmt.Errorf("failed to up migrate: %v", err)
 	}
 
 	return nil
@@ -110,9 +110,9 @@ func (s *Storage) GetOrderByUID(ctx context.Context, orderUID string) (*models.O
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, fmt.Errorf("Failed to find order with UID %v: %w", orderUID, err)
+			return nil, fmt.Errorf("failed to find order with UID %v: %w", orderUID, err)
 		}
-		return nil, fmt.Errorf("Failed to query database: %w", err)
+		return nil, fmt.Errorf("failed to query database: %w", err)
 	}
 
 	deliveryQuery := "SELECT name, phone, zip, city, address, region, email FROM delivery WHERE order_uid = $1"
@@ -127,7 +127,7 @@ func (s *Storage) GetOrderByUID(ctx context.Context, orderUID string) (*models.O
 		&delivery.Email,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to query delivery: %w", err)
+		return nil, fmt.Errorf("failed to query delivery: %w", err)
 	}
 	order.Delivery = delivery
 
@@ -146,14 +146,14 @@ func (s *Storage) GetOrderByUID(ctx context.Context, orderUID string) (*models.O
 		&payment.CustomFee,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to query payment: %w", err)
+		return nil, fmt.Errorf("failed to query payment: %w", err)
 	}
 	order.Payment = payment
 
 	itemsQuery := "SELECT chrt_id, track_number, price, rid, name, sale, size, total_price, nm_id, brand, status FROM item WHERE order_uid = $1"
 	rows, err := s.pool.Query(ctx, itemsQuery, orderUID)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to query items: %w", err)
+		return nil, fmt.Errorf("failed to query items: %w", err)
 	}
 	defer rows.Close()
 	var items []models.Item
@@ -173,12 +173,12 @@ func (s *Storage) GetOrderByUID(ctx context.Context, orderUID string) (*models.O
 			&item.Status,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to scan item: %w", err)
+			return nil, fmt.Errorf("failed to scan item: %w", err)
 		}
 		items = append(items, item)
 	}
 	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("Failed to iterate items: %w", err)
+		return nil, fmt.Errorf("failed to iterate items: %w", err)
 	}
 	order.Items = items
 
@@ -189,7 +189,7 @@ func (s *Storage) GetOrderByUID(ctx context.Context, orderUID string) (*models.O
 func (s *Storage) AddOrder(ctx context.Context, order *models.Order) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("Failed to begin transaction: %w", err)
+		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
@@ -213,7 +213,7 @@ func (s *Storage) AddOrder(ctx context.Context, order *models.Order) error {
 		order.OOFShard,
 	)
 	if err != nil {
-		return fmt.Errorf("Failed to insert order: %w", err)
+		return fmt.Errorf("failed to insert order: %w", err)
 	}
 
 	deliveryQuery := `
@@ -232,7 +232,7 @@ func (s *Storage) AddOrder(ctx context.Context, order *models.Order) error {
 		order.Delivery.Email,
 	)
 	if err != nil {
-		return fmt.Errorf("Failed to insert delivery: %w", err)
+		return fmt.Errorf("failed to insert delivery: %w", err)
 	}
 
 	paymentQuery := `
@@ -255,7 +255,7 @@ func (s *Storage) AddOrder(ctx context.Context, order *models.Order) error {
 		order.Payment.CustomFee,
 	)
 	if err != nil {
-		return fmt.Errorf("Failed to insert payment: %w", err)
+		return fmt.Errorf("failed to insert payment: %w", err)
 	}
 
 	itemQuery := `
@@ -280,11 +280,11 @@ func (s *Storage) AddOrder(ctx context.Context, order *models.Order) error {
 			item.Status,
 		)
 		if err != nil {
-			return fmt.Errorf("Failed to insert item: %w", err)
+			return fmt.Errorf("failed to insert item: %w", err)
 		}
 	}
 	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("Failed to commit transaction: %w", err)
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
@@ -297,7 +297,7 @@ func (s *Storage) OrderExists(ctx context.Context, orderUID string) (bool, error
 
 	err := s.pool.QueryRow(ctx, query, orderUID).Scan(&exists)
 	if err != nil {
-		return false, fmt.Errorf("Failed to check order existence: %w", err)
+		return false, fmt.Errorf("failed to check order existence: %w", err)
 	}
 
 	return exists, nil
@@ -310,7 +310,7 @@ func (s *Storage) AddOrderIfNotExists(ctx context.Context, order *models.Order) 
 		return err
 	}
 	if exists {
-		return fmt.Errorf("Order with UID %v already exists", order.OrderUID)
+		return fmt.Errorf("order with UID %v already exists", order.OrderUID)
 	}
 
 	return s.AddOrder(ctx, order)
@@ -321,7 +321,7 @@ func (s *Storage) GetAllOrdersUID(ctx context.Context) ([]string, error) {
 	query := "SELECT order_uid FROM orders"
 	rows, err := s.pool.Query(ctx, query)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to query orders: %w", err)
+		return nil, fmt.Errorf("failed to query orders: %w", err)
 	}
 	defer rows.Close()
 
@@ -329,12 +329,12 @@ func (s *Storage) GetAllOrdersUID(ctx context.Context) ([]string, error) {
 	for rows.Next() {
 		var uid string
 		if err := rows.Scan(&uid); err != nil {
-			return nil, fmt.Errorf("Failed to scan order_uid: %w", err)
+			return nil, fmt.Errorf("failed to scan order_uid: %w", err)
 		}
 		listUIDs = append(listUIDs, uid)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("Failed to iterate order_uid: %w", err)
+		return nil, fmt.Errorf("failed to iterate order_uid: %w", err)
 	}
 
 	return listUIDs, nil
@@ -346,7 +346,7 @@ func (s *Storage) GetRecentOrdersUID(ctx context.Context, limit int) ([]string, 
 
 	rows, err := s.pool.Query(ctx, query, limit)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to query recent orders: %w", err)
+		return nil, fmt.Errorf("failed to query recent orders: %w", err)
 	}
 	defer rows.Close()
 
@@ -354,13 +354,13 @@ func (s *Storage) GetRecentOrdersUID(ctx context.Context, limit int) ([]string, 
 	for rows.Next() {
 		var uid string
 		if err := rows.Scan(&uid); err != nil {
-			return nil, fmt.Errorf("Failed to scan order_uid: %w", err)
+			return nil, fmt.Errorf("failed to scan order_uid: %w", err)
 		}
 		uids = append(uids, uid)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("Failed to iterate order_uid: %w", err)
+		return nil, fmt.Errorf("failed to iterate order_uid: %w", err)
 	}
 
 	return uids, nil

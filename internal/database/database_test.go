@@ -31,19 +31,19 @@ func TestMain(m *testing.M) {
 	)
 
 	if err != nil {
-		log.Printf("Failed to run container with postgres: %v", err)
+		log.Printf("failed to run container with postgres: %v", err)
 		os.Exit(1)
 	}
 
 	connStr, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
 	if err != nil {
-		log.Printf("Failed to run connection string from container: %v", err)
+		log.Printf("failed to run connection string from container: %v", err)
 		os.Exit(1)
 	}
 
 	testPool, err = pgxpool.New(ctx, connStr)
 	if err != nil {
-		log.Printf("Failed to create pool: %v", err)
+		log.Printf("failed to create pool: %v", err)
 		os.Exit(1)
 	}
 
@@ -52,7 +52,7 @@ func TestMain(m *testing.M) {
 	time.Sleep(2 * time.Second)
 
 	if err := testStorage.RunMigrations(); err != nil {
-		log.Printf("Failed to migrate database: %v", err)
+		log.Printf("failed to migrate database: %v", err)
 		os.Exit(1)
 	}
 
