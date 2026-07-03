@@ -26,7 +26,7 @@ type Consumer struct {
 	storage   database.StorageInterface
 	validator *validator.Validate
 	cache     *cache.Cache
-	logger 	  *slog.Logger
+	logger    *slog.Logger
 }
 
 // NewConsumer creates a Consumer.
@@ -38,7 +38,7 @@ func NewConsumer(reader MessageReader, storage database.StorageInterface, cache 
 		storage:   storage,
 		validator: validate,
 		cache:     cache,
-		logger:	   logger,
+		logger:    logger,
 	}
 }
 
@@ -54,7 +54,7 @@ func (c *Consumer) Consume(ctx context.Context) {
 			c.logger.Error("failed to consume", "error", err)
 			continue
 		}
-		c.logger.Debug("recieved message", "message", string(msg.Value))
+		c.logger.Debug("received message", "message", string(msg.Value))
 
 		order, err := c.processMessage(msg)
 		if err != nil {

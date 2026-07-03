@@ -62,8 +62,8 @@ func (m *mockStorage) AddOrder(ctx context.Context, order *models.Order) error {
 	return nil
 }
 
-func (m *mockStorage) TestDB(ctx context.Context) (string, error) {
-	return "", nil
+func (m *mockStorage) CheckHealthDB(ctx context.Context) error {
+	return nil
 }
 
 func (m *mockStorage) GetOrderByUID(ctx context.Context, uid string) (*models.Order, error) {

@@ -98,16 +98,8 @@ func main() {
 
 	handler := handlers.NewHandler(storage, cache, logger, cfg.KafkaBrokers)
 
-	router.GET("/api/server_check", func(c *gin.Context) {
-		handler.TestServerHandle(c)
-	})
-
-	router.GET("/api/db_check", func(c *gin.Context) {
-		handler.TestDBHandle(c)
-	})
-
-	router.GET("/api/kafka_check", func(c *gin.Context) {
-		handler.TestKafkaHandle(c)
+	router.GET("/health", func(c *gin.Context) {
+		handler.HealthcheckHandle(c)
 	})
 
 	router.GET("/api/orders/:uid", func(c *gin.Context) {

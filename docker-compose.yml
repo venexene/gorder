@@ -29,6 +29,12 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:${HTTP_PORT}/health || exit 1"]
+      interval: 10s
+      timeout: 8s
+      retries: 3
+      start_period: 10s
     environment:
        - DB_HOST=${DB_HOST}
        - DB_PORT=${DB_PORT}

@@ -17,8 +17,8 @@ import (
 
 type mockStorage struct{}
 
-func (m *mockStorage) TestDB(ctx context.Context) (string, error) {
-	return "Database works", nil
+func (m *mockStorage) CheckHealthDB(ctx context.Context) error {
+	return nil
 }
 
 func (m *mockStorage) GetOrderByUID(ctx context.Context, orderUID string) (*models.Order, error) {
@@ -53,56 +53,23 @@ func newTestHandler() *Handler {
 	return NewHandler(&mockStorage{}, cache.NewCache(10, logger), logger, "")
 }
 
-// TestServerHandle checks the server health-check endpoint.
-func TestServerHandle(t *testing.T) {
+// TestHealthcheckHandle verifies the health check endpoint returns correct status.
+func TestHealthcheckHandle(t *testing.T) {
 	handler := newTestHandler()
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", "/", nil)
+	c.Request = httptest.NewRequest("GET", "/health", nil)
 
-	handler.TestServerHandle(c)
+	handler.HealthcheckHandle(c)
 
-	if w.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", w.Code)
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("expected 503, got %d", w.Code)
 	}
+
 	var body map[string]string
 	json.NewDecoder(w.Body).Decode(&body)
-	if body["status"] != "Server definetly works" {
-		t.Errorf("unexpected status: %s", body["status"])
-	}
-}
-
-// TestDBHandle checks the database health-check endpoint.
-func TestDBHandle(t *testing.T) {
-	handler := newTestHandler()
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", "/", nil)
-
-	handler.TestDBHandle(c)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", w.Code)
-	}
-	var body map[string]string
-	json.NewDecoder(w.Body).Decode(&body)
-	if body["status"] != "Database works" {
-		t.Errorf("unexpected status: %s", body["status"])
-	}
-}
-
-// TestKafkaHandle_Failure checks unreachable broker.
-func TestKafkaHandle_Failure(t *testing.T) {
-	logger := slog.New(slog.DiscardHandler)
-	handler := NewHandler(&mockStorage{}, cache.NewCache(10, logger), logger, "localhost:19999")
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", "/", nil)
-
-	handler.TestKafkaHandle(c)
-
-	if w.Code != http.StatusInternalServerError {
-		t.Errorf("expected 500, got %d", w.Code)
+	if body["status"] != "DOWN" {
+		t.Errorf("expected status DOWN, got %s", body["status"])
 	}
 }
 

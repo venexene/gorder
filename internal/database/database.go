@@ -24,7 +24,7 @@ type Storage struct {
 
 // StorageInterface defines the contract for order storage operations.
 type StorageInterface interface {
-	TestDB(ctx context.Context) (string, error)
+	CheckHealthDB(ctx context.Context) error
 	GetOrderByUID(ctx context.Context, orderUID string) (*models.Order, error)
 	GetAllOrdersUID(ctx context.Context) ([]string, error)
 	GetRecentOrdersUID(ctx context.Context, limit int) ([]string, error)
@@ -84,11 +84,9 @@ func (s *Storage) RunMigrations() error {
 	return nil
 }
 
-// TestDB verifies the database connection is alive.
-func (s *Storage) TestDB(ctx context.Context) (string, error) {
-	var result string
-	err := s.pool.QueryRow(ctx, "SELECT 'DataBase definetly works'").Scan(&result)
-	return result, err
+// CheckHealthDB verifies the database connection pool is alive by pinging the server.
+func (s *Storage) CheckHealthDB(ctx context.Context) error {
+	return s.pool.Ping(ctx)
 }
 
 // GetOrderByUID retrieves a complete order with delivery, payment and items.

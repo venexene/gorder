@@ -5,6 +5,9 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -19,7 +22,7 @@ import (
 type Handler struct {
 	storage      database.StorageInterface
 	cache        *cache.Cache
-	logger		 *slog.Logger
+	logger       *slog.Logger
 	kafkaBrokers string
 }
 
@@ -28,55 +31,50 @@ func NewHandler(storage database.StorageInterface, cache *cache.Cache, logger *s
 	return &Handler{
 		storage:      storage,
 		cache:        cache,
-		logger:		  logger,
+		logger:       logger,
 		kafkaBrokers: kafkaBrokers,
 	}
 }
 
-// TestServerHandle responds with a simple server status check.
-func (h *Handler) TestServerHandle(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"status": "Server definetly works",
-	})
-}
+// HealthcheckHandle checks database and Kafka connectivity in parallel.
+// Returns 200 OK when all dependencies are healthy, 503 otherwise.
+func (h *Handler) HealthcheckHandle(c *gin.Context) {
+	var wg sync.WaitGroup
+	var healthy atomic.Bool
+	healthy.Store(true)
 
-// TestDBHandle verifies the database connection and returns its status.
-func (h *Handler) TestDBHandle(c *gin.Context) {
-	res, err := h.storage.TestDB(c.Request.Context())
-	if err != nil {
-		h.logger.Error("failed to test database", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to connect database",
-		})
-		return
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ctxDB, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		if err := h.storage.CheckHealthDB(ctxDB); err != nil {
+			healthy.Store(false)
+			return
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ctxKafka, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+
+		connKafka, err := kafka.DialContext(ctxKafka, "tcp", strings.Split(h.kafkaBrokers, ",")[0])
+		if err != nil {
+			healthy.Store(false)
+			return
+		}
+		defer connKafka.Close()
+	}()
+
+	wg.Wait()
+
+	if healthy.Load() {
+		c.JSON(http.StatusOK, gin.H{"status": "UP"})
+	} else {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "DOWN"})
 	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"status": res,
-	})
-}
-
-// TestKafkaHandle checks connectivity to the Kafka broker.
-func (h *Handler) TestKafkaHandle(c *gin.Context) {
-	ctxKafka, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	connKafka, err := kafka.DialContext(ctxKafka, "tcp", h.kafkaBrokers)
-	if err != nil {
-		h.logger.Error("failed to test consumer", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to connect consumer",
-		})
-		return
-	}
-	defer connKafka.Close()
-
-	broker := connKafka.Broker()
-	c.JSON(http.StatusOK, gin.H{
-		"status":    "Consumer definetly works",
-		"brokers":   h.kafkaBrokers,
-		"broker_id": broker.ID,
-	})
 }
 
 // GetOrderByUIDHandle returns full order data as JSON, using cache when available.
@@ -84,7 +82,7 @@ func (h *Handler) GetOrderByUIDHandle(c *gin.Context) {
 	orderUID := c.Param("uid")
 	if orderUID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "No UID recieved",
+			"error": "No UID received",
 		})
 		return
 	}

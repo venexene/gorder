@@ -123,20 +123,6 @@ func setupTest(t *testing.T) {
 	testPool.Exec(ctx, "DELETE FROM orders")
 }
 
-// TestTestDB verifies lightweight database ping.
-func TestTestDB(t *testing.T) {
-	setupTest(t)
-	ctx := context.Background()
-
-	result, err := testStorage.TestDB(ctx)
-	if err != nil {
-		t.Fatalf("TestDB failed: %v", err)
-	}
-	if result != "DataBase definetly works" {
-		t.Errorf("unexpected TestDB result: %s", result)
-	}
-}
-
 // TestAddOrder_InsertAndRetrieve inserts an order, fetches it and verifies fields.
 func TestAddOrder_InsertAndRetrieve(t *testing.T) {
 	setupTest(t)
