@@ -129,17 +129,6 @@ func (c *Cache) Delete(key string) {
 	}
 }
 
-// GetAllUIDs returns UIDs of all orders currently in the cache.
-func (c *Cache) GetAllUIDs() []string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	uids := make([]string, 0, len(c.elems))
-	for uid := range c.elems {
-		uids = append(uids, uid)
-	}
-	return uids
-}
-
 // Size returns the current number of orders in the cache.
 func (c *Cache) Size() int {
 	c.mu.RLock()

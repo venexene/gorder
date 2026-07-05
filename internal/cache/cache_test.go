@@ -62,36 +62,6 @@ func TestCacheEviction(t *testing.T) {
 	}
 }
 
-// TestCacheGetAllUIDs verifies that GetAllUIDs returns all keys currently in the cache.
-func TestCacheGetAllUIDs(t *testing.T) {
-	logger := slog.New(slog.DiscardHandler)
-	cache := NewCache(3, logger, nil)
-
-	order1, err := models.LoadOrderFromFile("../../testdata/order1.json")
-	if err != nil {
-		t.Errorf("failed to load order1 from file: %v", err)
-	}
-
-	order2, err := models.LoadOrderFromFile("../../testdata/order2.json")
-	if err != nil {
-		t.Errorf("failed to load order2 from file: %v", err)
-	}
-
-	order3, err := models.LoadOrderFromFile("../../testdata/order3.json")
-	if err != nil {
-		t.Errorf("failed to load order3 from file: %v", err)
-	}
-
-	cache.Set(order1)
-	cache.Set(order2)
-	cache.Set(order3)
-
-	uids := cache.GetAllUIDs()
-	if len(uids) != 3 {
-		t.Errorf("expected 3 UIDs, but got %d", len(uids))
-	}
-}
-
 // TestCacheDelete verifies that an order is properly removed from the cache.
 func TestCacheDelete(t *testing.T) {
 	logger := slog.New(slog.DiscardHandler)
