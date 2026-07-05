@@ -91,7 +91,20 @@ func (s *Storage) CheckHealthDB(ctx context.Context) error {
 
 // GetOrderByUID retrieves a complete order with delivery, payment and items.
 func (s *Storage) GetOrderByUID(ctx context.Context, orderUID string) (*models.Order, error) {
-	orderQuery := "SELECT * FROM orders WHERE order_uid = $1"
+	orderQuery := `
+		SELECT
+			o.order_uid, o.track_number, o.entry, o.locale,
+			o.internal_signature, o.customer_id, o.delivery_service,
+			o.shardkey, o.sm_id, o.date_created, o.oof_shard,
+			d.name, d.phone, d.zip, d.city, d.address, d.region, d.email,
+			p.transaction, p.request_id, p.currency, p.provider,
+			p.amount, p.payment_dt, p.bank, p.delivery_cost,
+			p.goods_total, p.custom_fee
+		FROM orders o
+		LEFT JOIN delivery d ON d.order_uid = o.order_uid
+		LEFT JOIN payment p ON p.order_uid = o.order_uid
+		WHERE o.order_uid = $1
+	`
 	var order models.Order
 	err := s.pool.QueryRow(ctx, orderQuery, orderUID).Scan(
 		&order.OrderUID,
@@ -105,6 +118,23 @@ func (s *Storage) GetOrderByUID(ctx context.Context, orderUID string) (*models.O
 		&order.SMID,
 		&order.DateCreated,
 		&order.OOFShard,
+		&order.Delivery.Name,
+		&order.Delivery.Phone,
+		&order.Delivery.Zip,
+		&order.Delivery.City,
+		&order.Delivery.Address,
+		&order.Delivery.Region,
+		&order.Delivery.Email,
+		&order.Payment.Transaction,
+		&order.Payment.RequestID,
+		&order.Payment.Currency,
+		&order.Payment.Provider,
+		&order.Payment.Amount,
+		&order.Payment.PaymentDt,
+		&order.Payment.Bank,
+		&order.Payment.DeliveryCost,
+		&order.Payment.GoodsTotal,
+		&order.Payment.CustomFee,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -112,41 +142,6 @@ func (s *Storage) GetOrderByUID(ctx context.Context, orderUID string) (*models.O
 		}
 		return nil, fmt.Errorf("failed to query database: %w", err)
 	}
-
-	deliveryQuery := "SELECT name, phone, zip, city, address, region, email FROM delivery WHERE order_uid = $1"
-	var delivery models.Delivery
-	err = s.pool.QueryRow(ctx, deliveryQuery, orderUID).Scan(
-		&delivery.Name,
-		&delivery.Phone,
-		&delivery.Zip,
-		&delivery.City,
-		&delivery.Address,
-		&delivery.Region,
-		&delivery.Email,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query delivery: %w", err)
-	}
-	order.Delivery = delivery
-
-	paymentQuery := "SELECT transaction, request_id, currency, provider, amount, payment_dt, bank, delivery_cost, goods_total, custom_fee FROM payment WHERE order_uid = $1"
-	var payment models.Payment
-	err = s.pool.QueryRow(ctx, paymentQuery, orderUID).Scan(
-		&payment.Transaction,
-		&payment.RequestID,
-		&payment.Currency,
-		&payment.Provider,
-		&payment.Amount,
-		&payment.PaymentDt,
-		&payment.Bank,
-		&payment.DeliveryCost,
-		&payment.GoodsTotal,
-		&payment.CustomFee,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query payment: %w", err)
-	}
-	order.Payment = payment
 
 	itemsQuery := "SELECT chrt_id, track_number, price, rid, name, sale, size, total_price, nm_id, brand, status FROM item WHERE order_uid = $1"
 	rows, err := s.pool.Query(ctx, itemsQuery, orderUID)

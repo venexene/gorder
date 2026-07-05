@@ -183,7 +183,7 @@ func TestConsume_Successful(t *testing.T) {
 	cc := cache.NewCache(10, logger, nil)
 	c := NewConsumer(reader, storage, cc, logger, nil, "")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	c.Consume(ctx)
 
@@ -209,7 +209,7 @@ func TestConsume_SkipInvalid(t *testing.T) {
 	storage := newMockStorage()
 	c := NewConsumer(reader, storage, cache.NewCache(10, logger, nil), logger, nil, "")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	c.Consume(ctx)
 
@@ -229,7 +229,7 @@ func TestConsume_Duplicate(t *testing.T) {
 	cc := cache.NewCache(10, logger, nil)
 	c := NewConsumer(reader, storage, cc, logger, nil, "")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	c.Consume(ctx)
 
@@ -249,7 +249,7 @@ func TestConsume_GracefulShutdown(t *testing.T) {
 	storage := newMockStorage()
 	c := NewConsumer(reader, storage, cache.NewCache(10, logger, nil), logger, nil, "")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	c.Consume(ctx)
 

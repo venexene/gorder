@@ -24,13 +24,13 @@ type MessageReader interface {
 
 // Consumer reads orders from topic and persists them.
 type Consumer struct {
-	reader    	 MessageReader
-	storage   	 storage.Interface
-	validator 	 *validator.Validate
-	cache     	 *cache.Cache
-	logger    	 *slog.Logger
-	metrics   	 *metrics.Metrics
-	kafkaBrokers string 
+	reader       MessageReader
+	storage      storage.Interface
+	validator    *validator.Validate
+	cache        *cache.Cache
+	logger       *slog.Logger
+	metrics      *metrics.Metrics
+	kafkaBrokers string
 }
 
 // NewConsumer creates a Consumer.
@@ -38,12 +38,12 @@ func NewConsumer(reader MessageReader, storage storage.Interface, cache *cache.C
 	validate := validator.New()
 
 	return &Consumer{
-		reader:    reader,
-		storage:   storage,
-		validator: validate,
-		cache:     cache,
-		logger:    logger,
-		metrics:   metrics,
+		reader:       reader,
+		storage:      storage,
+		validator:    validate,
+		cache:        cache,
+		logger:       logger,
+		metrics:      metrics,
 		kafkaBrokers: kafkaBrokers,
 	}
 }
@@ -107,12 +107,13 @@ func (c *Consumer) Close() error {
 	return c.reader.Close()
 }
 
+// CheckHealth verifies Kafka connectivity.
 func (c *Consumer) CheckHealth(ctx context.Context) error {
 	_, err := kafka.DialContext(ctx, "tcp", strings.Split(c.kafkaBrokers, ",")[0])
 	return err
 }
 
+// HealthChecker abstracts a component whose health can be verified.
 type HealthChecker interface {
 	CheckHealth(ctx context.Context) error
 }
-
