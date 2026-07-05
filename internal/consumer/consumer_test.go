@@ -125,7 +125,7 @@ func validOrderJSON() []byte {
 // TestProcessMessage_Valid checks that valid JSON is parsed into an Order.
 func TestProcessMessage_Valid(t *testing.T) {
 	logger := slog.New(slog.DiscardHandler)
-	c := NewConsumer(nil, nil, nil, logger, nil)
+	c := NewConsumer(nil, nil, nil, logger, nil, "")
 	msg := kafka.Message{Value: validOrderJSON()}
 
 	order, err := c.processMessage(msg)
@@ -143,7 +143,7 @@ func TestProcessMessage_Valid(t *testing.T) {
 // TestProcessMessage_InvalidJSON checks that broken JSON returns an error.
 func TestProcessMessage_InvalidJSON(t *testing.T) {
 	logger := slog.New(slog.DiscardHandler)
-	c := NewConsumer(nil, nil, nil, logger, nil)
+	c := NewConsumer(nil, nil, nil, logger, nil, "")
 	msg := kafka.Message{Value: []byte("not json")}
 
 	_, err := c.processMessage(msg)
@@ -155,7 +155,7 @@ func TestProcessMessage_InvalidJSON(t *testing.T) {
 // TestProcessMessage_ValidationFailed checks that an order missing required fields fails validation.
 func TestProcessMessage_ValidationFailed(t *testing.T) {
 	logger := slog.New(slog.DiscardHandler)
-	c := NewConsumer(nil, nil, nil, logger, nil)
+	c := NewConsumer(nil, nil, nil, logger, nil, "")
 	msg := kafka.Message{Value: []byte(
 		`{"order_uid":"x","track_number":"t","entry":"e","locale":"en",` +
 			`"customer_id":"c","delivery_service":"d","shardkey":"1","sm_id":1,` +
@@ -181,7 +181,7 @@ func TestConsume_Successful(t *testing.T) {
 	logger := slog.New(slog.DiscardHandler)
 	storage := newMockStorage()
 	cc := cache.NewCache(10, logger, nil)
-	c := NewConsumer(reader, storage, cc, logger, nil)
+	c := NewConsumer(reader, storage, cc, logger, nil, "")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
 	defer cancel()
@@ -207,7 +207,7 @@ func TestConsume_SkipInvalid(t *testing.T) {
 
 	logger := slog.New(slog.DiscardHandler)
 	storage := newMockStorage()
-	c := NewConsumer(reader, storage, cache.NewCache(10, logger, nil), logger, nil)
+	c := NewConsumer(reader, storage, cache.NewCache(10, logger, nil), logger, nil, "")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
 	defer cancel()
@@ -227,7 +227,7 @@ func TestConsume_Duplicate(t *testing.T) {
 	storage := newMockStorage()
 	storage.addOrderErr = errors.New("already exists")
 	cc := cache.NewCache(10, logger, nil)
-	c := NewConsumer(reader, storage, cc, logger, nil)
+	c := NewConsumer(reader, storage, cc, logger, nil, "")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
 	defer cancel()
@@ -247,7 +247,7 @@ func TestConsume_GracefulShutdown(t *testing.T) {
 
 	logger := slog.New(slog.DiscardHandler)
 	storage := newMockStorage()
-	c := NewConsumer(reader, storage, cache.NewCache(10, logger, nil), logger, nil)
+	c := NewConsumer(reader, storage, cache.NewCache(10, logger, nil), logger, nil, "")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
 	defer cancel()

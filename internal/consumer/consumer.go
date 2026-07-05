@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"strings"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/segmentio/kafka-go"
@@ -23,16 +24,17 @@ type MessageReader interface {
 
 // Consumer reads orders from topic and persists them.
 type Consumer struct {
-	reader    MessageReader
-	storage   storage.Interface
-	validator *validator.Validate
-	cache     *cache.Cache
-	logger    *slog.Logger
-	metrics   *metrics.Metrics
+	reader    	 MessageReader
+	storage   	 storage.Interface
+	validator 	 *validator.Validate
+	cache     	 *cache.Cache
+	logger    	 *slog.Logger
+	metrics   	 *metrics.Metrics
+	kafkaBrokers string 
 }
 
 // NewConsumer creates a Consumer.
-func NewConsumer(reader MessageReader, storage storage.Interface, cache *cache.Cache, logger *slog.Logger, metrics *metrics.Metrics) *Consumer {
+func NewConsumer(reader MessageReader, storage storage.Interface, cache *cache.Cache, logger *slog.Logger, metrics *metrics.Metrics, kafkaBrokers string) *Consumer {
 	validate := validator.New()
 
 	return &Consumer{
@@ -42,6 +44,7 @@ func NewConsumer(reader MessageReader, storage storage.Interface, cache *cache.C
 		cache:     cache,
 		logger:    logger,
 		metrics:   metrics,
+		kafkaBrokers: kafkaBrokers,
 	}
 }
 
@@ -103,3 +106,13 @@ func (c *Consumer) processMessage(msg kafka.Message) (*models.Order, error) {
 func (c *Consumer) Close() error {
 	return c.reader.Close()
 }
+
+func (c *Consumer) CheckHealth(ctx context.Context) error {
+	_, err := kafka.DialContext(ctx, "tcp", strings.Split(c.kafkaBrokers, ",")[0])
+	return err
+}
+
+type HealthChecker interface {
+	CheckHealth(ctx context.Context) error
+}
+

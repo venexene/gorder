@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -15,10 +16,12 @@ import (
 	"github.com/venexene/gorder/internal/models"
 )
 
-type mockStorage struct{}
+type mockStorage struct {
+	healthError error
+}
 
 func (m *mockStorage) CheckHealthDB(ctx context.Context) error {
-	return nil
+	return m.healthError
 }
 
 func (m *mockStorage) GetOrderByUID(ctx context.Context, orderUID string) (*models.Order, error) {
@@ -48,14 +51,66 @@ func (m *mockStorage) AddOrderIfNotExists(ctx context.Context, order *models.Ord
 	return nil
 }
 
-func newTestHandler() *Handler {
-	logger := slog.New(slog.DiscardHandler)
-	return NewHandler(&mockStorage{}, cache.NewCache(10, logger, nil), logger, "")
+type mockConsumer struct {
+	healthError error
 }
 
-// TestHealthcheckHandle verifies the health check endpoint returns correct status.
-func TestHealthcheckHandle(t *testing.T) {
+func (m *mockConsumer) CheckHealth(ctx context.Context) error {
+	return m.healthError
+}
+
+func newTestHandler() *Handler {
+	logger := slog.New(slog.DiscardHandler)
+	return NewHandler(&mockStorage{}, &mockConsumer{}, cache.NewCache(10, logger, nil), logger)
+}
+
+// TestHealthcheckHandle_Up verifies 200 UP when both DB and Kafka are healthy.
+func TestHealthcheckHandle_Up(t *testing.T) {
 	handler := newTestHandler()
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("GET", "/health", nil)
+
+	handler.HealthcheckHandle(c)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+
+	var body map[string]string
+	json.NewDecoder(w.Body).Decode(&body)
+	if body["status"] != "UP" {
+		t.Errorf("expected status UP, got %s", body["status"])
+	}
+}
+
+// TestHealthcheckHandle_KafkaDown verifies 503 DOWN when Kafka is unhealthy.
+func TestHealthcheckHandle_KafkaDown(t *testing.T) {
+	handler := newTestHandler()
+	handler.consumer = &mockConsumer{healthError: fmt.Errorf("kafka down")}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("GET", "/health", nil)
+
+	handler.HealthcheckHandle(c)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("expected 503, got %d", w.Code)
+	}
+
+	var body map[string]string
+	json.NewDecoder(w.Body).Decode(&body)
+	if body["status"] != "DOWN" {
+		t.Errorf("expected status DOWN, got %s", body["status"])
+	}
+}
+
+// TestHealthcheckHandle_DBDown verifies 503 DOWN when database is unhealthy.
+func TestHealthcheckHandle_DBDown(t *testing.T) {
+	handler := newTestHandler()
+	handler.storage = &mockStorage{healthError: fmt.Errorf("db down")}
+
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest("GET", "/health", nil)

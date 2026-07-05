@@ -81,18 +81,19 @@ func main() {
 		},
 		MaxAttempts: 3,
 	})
-	messageConsumer := consumer.NewConsumer(
+	co := consumer.NewConsumer(
 		reader,
 		s,
 		c,
 		logger,
 		m,
+		cfg.KafkaBrokers,
 	)
-	defer messageConsumer.Close()
+	defer co.Close()
 	logger.Info("created message consumer")
 
 	go func() {
-		messageConsumer.Consume(ctx)
+		co.Consume(ctx)
 	}()
 	logger.Info("started consume process", "topic", cfg.KafkaTopic)
 
@@ -103,7 +104,7 @@ func main() {
 	router.LoadHTMLGlob("web/templates/*")
 	router.Static("/static", "./web/static")
 
-	handler := handlers.NewHandler(s, c, logger, cfg.KafkaBrokers)
+	handler := handlers.NewHandler(s, co, c, logger)
 
 	router.GET("/health", func(c *gin.Context) {
 		handler.HealthcheckHandle(c)

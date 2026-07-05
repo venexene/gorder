@@ -5,34 +5,33 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
-	"github.com/segmentio/kafka-go"
 
 	"github.com/venexene/gorder/internal/cache"
 	"github.com/venexene/gorder/internal/storage"
+	"github.com/venexene/gorder/internal/consumer"
 )
 
 // Handler holds dependencies for HTTP request handlers.
 type Handler struct {
 	storage      storage.Interface
+	consumer     consumer.HealthChecker
 	cache        *cache.Cache
 	logger       *slog.Logger
-	kafkaBrokers string
 }
 
 // NewHandler creates a Handler with the given dependencies.
-func NewHandler(storage storage.Interface, cache *cache.Cache, logger *slog.Logger, kafkaBrokers string) *Handler {
+func NewHandler(storage storage.Interface, consumer consumer.HealthChecker, cache *cache.Cache, logger *slog.Logger) *Handler {
 	return &Handler{
 		storage:      storage,
+		consumer:     consumer,
 		cache:        cache,
 		logger:       logger,
-		kafkaBrokers: kafkaBrokers,
 	}
 }
 
@@ -59,12 +58,10 @@ func (h *Handler) HealthcheckHandle(c *gin.Context) {
 		ctxKafka, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
-		connKafka, err := kafka.DialContext(ctxKafka, "tcp", strings.Split(h.kafkaBrokers, ",")[0])
-		if err != nil {
+		if err := h.consumer.CheckHealth(ctxKafka); err != nil {
 			healthy.Store(false)
 			return
 		}
-		defer connKafka.Close()
 	}()
 
 	wg.Wait()
