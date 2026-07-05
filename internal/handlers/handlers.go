@@ -40,6 +40,8 @@ func (h *Handler) HealthcheckHandle(c *gin.Context) {
 	var wg sync.WaitGroup
 	var healthy atomic.Bool
 	healthy.Store(true)
+	dbStatus := "OK"
+	consumerStatus := "OK"
 
 	wg.Add(1)
 	go func() {
@@ -48,6 +50,7 @@ func (h *Handler) HealthcheckHandle(c *gin.Context) {
 		defer cancel()
 		if err := h.storage.CheckHealthDB(ctxDB); err != nil {
 			healthy.Store(false)
+			dbStatus = "DOWN"
 			return
 		}
 	}()
@@ -60,6 +63,7 @@ func (h *Handler) HealthcheckHandle(c *gin.Context) {
 
 		if err := h.consumer.CheckHealth(ctxKafka); err != nil {
 			healthy.Store(false)
+			consumerStatus = "DOWN"
 			return
 		}
 	}()
@@ -67,9 +71,17 @@ func (h *Handler) HealthcheckHandle(c *gin.Context) {
 	wg.Wait()
 
 	if healthy.Load() {
-		c.JSON(http.StatusOK, gin.H{"status": "UP"})
+		c.JSON(http.StatusOK, gin.H{
+			"status": "UP",
+			"db":     dbStatus,
+			"kafka":  consumerStatus,
+		})
 	} else {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "DOWN"})
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"status": "DOWN",
+			"db":     dbStatus,
+			"kafka":  consumerStatus,
+		})
 	}
 }
 
