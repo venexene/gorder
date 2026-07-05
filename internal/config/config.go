@@ -12,7 +12,7 @@ import (
 type Config struct {
 	HTTPPort      string
 	CacheCapacity int
-	LogFormat	  string
+	LogFormat     string
 	DBHost        string
 	DBPort        string
 	DBUser        string
@@ -54,7 +54,7 @@ func Load(path string) (*Config, error) {
 		KafkaBrokers:  os.Getenv("KAFKA_BROKERS"),
 		KafkaTopic:    os.Getenv("KAFKA_TOPIC"),
 	}
-	
+
 	if cfg.LogFormat != "text" && cfg.LogFormat != "json" {
 		return nil, fmt.Errorf("LOG_FORMAT must be text or json")
 	}

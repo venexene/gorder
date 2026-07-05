@@ -6,8 +6,9 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/venexene/gorder/internal/database"
+	"github.com/venexene/gorder/internal/metrics"
 	"github.com/venexene/gorder/internal/models"
+	"github.com/venexene/gorder/internal/storage"
 )
 
 type cacheNode struct {
@@ -24,11 +25,12 @@ type Cache struct {
 	head     *cacheNode
 	tail     *cacheNode
 	mu       sync.RWMutex
-	logger	 *slog.Logger
+	logger   *slog.Logger
+	metrics  *metrics.Metrics
 }
 
 // NewCache creates an LRU cache with the given maximum capacity.
-func NewCache(capacity int, logger *slog.Logger) *Cache {
+func NewCache(capacity int, logger *slog.Logger, metrics *metrics.Metrics) *Cache {
 	elems := make(map[string]*cacheNode)
 
 	cache := Cache{
@@ -36,7 +38,8 @@ func NewCache(capacity int, logger *slog.Logger) *Cache {
 		elems:    elems,
 		head:     &cacheNode{},
 		tail:     &cacheNode{},
-		logger:	  logger,
+		logger:   logger,
+		metrics:  metrics,
 	}
 
 	cache.head.next = cache.tail
@@ -84,23 +87,35 @@ func (c *Cache) Set(order *models.Order) {
 	n := &cacheNode{key: order.OrderUID, value: order}
 	c.elems[order.OrderUID] = n
 	c.addNode(n)
+	if c.metrics != nil {
+		c.metrics.OrdersInCache.Add(1)
+	}
 
 	if len(c.elems) > c.capacity {
 		tail := c.popTail()
 		delete(c.elems, tail.key)
+		if c.metrics != nil {
+			c.metrics.OrdersInCache.Dec()
+		}
 	}
 }
 
 // Get retrieves an order from the cache and marks it as recently used.
 func (c *Cache) Get(key string) (*models.Order, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	if n, exist := c.elems[key]; exist {
 		c.moveToHead(n)
+		if c.metrics != nil {
+			c.metrics.CacheHits.Add(1)
+		}
 		return n.value, true
 	}
 
+	if c.metrics != nil {
+		c.metrics.CacheMisses.Add(1)
+	}
 	return nil, false
 }
 
@@ -109,6 +124,9 @@ func (c *Cache) Delete(key string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	delete(c.elems, key)
+	if c.metrics != nil {
+		c.metrics.OrdersInCache.Dec()
+	}
 }
 
 // GetAllUIDs returns UIDs of all orders currently in the cache.
@@ -130,15 +148,15 @@ func (c *Cache) Size() int {
 }
 
 // Populate preloads the cache with the most recent orders from the database.
-func (c *Cache) Populate(ctx context.Context, storage *database.Storage) error {
-	uids, err := storage.GetRecentOrdersUID(ctx, c.capacity)
+func (c *Cache) Populate(ctx context.Context, st *storage.Storage) error {
+	uids, err := st.GetRecentOrdersUID(ctx, c.capacity)
 	if err != nil {
 		return fmt.Errorf("failed to get recent orders: %v", err)
 	}
 
 	var loadCount int
 	for _, uid := range uids {
-		order, err := storage.GetOrderByUID(ctx, uid)
+		order, err := st.GetOrderByUID(ctx, uid)
 		if err != nil {
 			c.logger.Error("failed to load order into cache", "order_uid", uid, "error", err)
 			continue
@@ -146,6 +164,8 @@ func (c *Cache) Populate(ctx context.Context, storage *database.Storage) error {
 		c.Set(order)
 		loadCount++
 	}
+
+	c.metrics.OrdersInCache.Set(float64(loadCount))
 
 	return nil
 }

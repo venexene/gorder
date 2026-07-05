@@ -10,7 +10,7 @@ import (
 // TestCacheSetGet verifies basic Set/Get operations and non-existent key lookup.
 func TestCacheSetGet(t *testing.T) {
 	logger := slog.New(slog.DiscardHandler)
-	cache := NewCache(2, logger)
+	cache := NewCache(2, logger, nil)
 	order, err := models.LoadOrderFromFile("../../testdata/order1.json")
 	if err != nil {
 		t.Errorf("failed to load order from file: %v", err)
@@ -29,7 +29,7 @@ func TestCacheSetGet(t *testing.T) {
 // TestCacheEviction verifies that the least recently used item is evicted when capacity is exceeded.
 func TestCacheEviction(t *testing.T) {
 	logger := slog.New(slog.DiscardHandler)
-	cache := NewCache(2, logger)
+	cache := NewCache(2, logger, nil)
 	order1, err := models.LoadOrderFromFile("../../testdata/order1.json")
 	if err != nil {
 		t.Errorf("failed to load order1 from file: %v", err)
@@ -65,7 +65,7 @@ func TestCacheEviction(t *testing.T) {
 // TestCacheGetAllUIDs verifies that GetAllUIDs returns all keys currently in the cache.
 func TestCacheGetAllUIDs(t *testing.T) {
 	logger := slog.New(slog.DiscardHandler)
-	cache := NewCache(3, logger)
+	cache := NewCache(3, logger, nil)
 
 	order1, err := models.LoadOrderFromFile("../../testdata/order1.json")
 	if err != nil {
@@ -95,7 +95,7 @@ func TestCacheGetAllUIDs(t *testing.T) {
 // TestCacheDelete verifies that an order is properly removed from the cache.
 func TestCacheDelete(t *testing.T) {
 	logger := slog.New(slog.DiscardHandler)
-	cache := NewCache(2, logger)
+	cache := NewCache(2, logger, nil)
 
 	order, err := models.LoadOrderFromFile("../../testdata/order1.json")
 	if err != nil {
@@ -105,7 +105,7 @@ func TestCacheDelete(t *testing.T) {
 	cache.Set(order)
 	cache.Delete("1864b7f1-c455-4300-bfdc-d339429c2099")
 
-	if _, exist := cache.Get(""); exist {
+	if _, exist := cache.Get("1864b7f1-c455-4300-bfdc-d339429c2099"); exist {
 		t.Error("failed to delete order from cache")
 	}
 }

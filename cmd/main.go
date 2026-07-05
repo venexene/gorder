@@ -12,13 +12,16 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	ginprom "github.com/logocomune/gin-prometheus"
 	"github.com/segmentio/kafka-go"
 
 	"github.com/venexene/gorder/internal/cache"
 	"github.com/venexene/gorder/internal/config"
 	"github.com/venexene/gorder/internal/consumer"
-	"github.com/venexene/gorder/internal/database"
 	"github.com/venexene/gorder/internal/handlers"
+	"github.com/venexene/gorder/internal/metrics"
+	"github.com/venexene/gorder/internal/middleware"
+	"github.com/venexene/gorder/internal/storage"
 )
 
 func main() {
@@ -38,30 +41,32 @@ func main() {
 	logger.Info("loaded config")
 	logger.Info("created logger")
 
+	m := metrics.NewMetrics()
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	pool, err := database.CreatePool(ctx, cfg)
+	pool, err := storage.CreatePool(ctx, cfg)
 	if err != nil {
 		logger.Error("failed to connect database", "error", err)
-    	os.Exit(1)
+		os.Exit(1)
 	}
 	defer pool.Close()
 
-	storage := database.NewStorage(pool, cfg.MigrationDir)
+	s := storage.NewStorage(pool, cfg.MigrationDir)
 	logger.Info("connected database")
 
-	if err := storage.RunMigrations(); err != nil {
+	if err := s.RunMigrations(); err != nil {
 		logger.Error("failed to migrate database", "error", err)
-    	os.Exit(1)
+		os.Exit(1)
 	}
 
-	cache := cache.NewCache(cfg.CacheCapacity, logger)
+	c := cache.NewCache(cfg.CacheCapacity, logger, m)
 	logger.Info("created cache")
 
-	if err := cache.Populate(ctx, storage); err != nil {
+	if err := c.Populate(ctx, s); err != nil {
 		logger.Error("failed to populate cache", "error", err)
 	} else {
-		logger.Info("populated cache with orders", "count", cache.Size())
+		logger.Info("populated cache with orders", "count", c.Size())
 	}
 
 	reader := kafka.NewReader(kafka.ReaderConfig{
@@ -78,9 +83,10 @@ func main() {
 	})
 	messageConsumer := consumer.NewConsumer(
 		reader,
-		storage,
-		cache,
+		s,
+		c,
 		logger,
+		m,
 	)
 	defer messageConsumer.Close()
 	logger.Info("created message consumer")
@@ -91,16 +97,19 @@ func main() {
 	logger.Info("started consume process", "topic", cfg.KafkaTopic)
 
 	router := gin.Default()
+	router.Use(middleware.All(m)...)
 	logger.Info("created GIN router")
 
 	router.LoadHTMLGlob("web/templates/*")
 	router.Static("/static", "./web/static")
 
-	handler := handlers.NewHandler(storage, cache, logger, cfg.KafkaBrokers)
+	handler := handlers.NewHandler(s, c, logger, cfg.KafkaBrokers)
 
 	router.GET("/health", func(c *gin.Context) {
 		handler.HealthcheckHandle(c)
 	})
+
+	router.GET("/metrics", gin.WrapH(ginprom.GetMetricHandler()))
 
 	router.GET("/api/orders/:uid", func(c *gin.Context) {
 		handler.GetOrderByUIDHandle(c)
@@ -127,7 +136,7 @@ func main() {
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Error("HTTP server error", "error", err)
-    		os.Exit(1)
+			os.Exit(1)
 		}
 	}()
 	logger.Info("started HTTP server on port", "port", cfg.HTTPPort)
@@ -141,7 +150,7 @@ func main() {
 
 	if err := srv.Shutdown(ctxShutdown); err != nil {
 		logger.Error("failed to shutdown server", "error", err)
-    	os.Exit(1)
+		os.Exit(1)
 	}
 	logger.Info("shutdown server")
 }

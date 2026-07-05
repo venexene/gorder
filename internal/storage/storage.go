@@ -1,4 +1,4 @@
-package database
+package storage
 
 import (
 	"context"
@@ -22,8 +22,8 @@ type Storage struct {
 	migrationPath string
 }
 
-// StorageInterface defines the contract for order storage operations.
-type StorageInterface interface {
+// Interface defines the contract for order storage operations.
+type Interface interface {
 	CheckHealthDB(ctx context.Context) error
 	GetOrderByUID(ctx context.Context, orderUID string) (*models.Order, error)
 	GetAllOrdersUID(ctx context.Context) ([]string, error)

@@ -50,7 +50,7 @@ func (m *mockStorage) AddOrderIfNotExists(ctx context.Context, order *models.Ord
 
 func newTestHandler() *Handler {
 	logger := slog.New(slog.DiscardHandler)
-	return NewHandler(&mockStorage{}, cache.NewCache(10, logger), logger, "")
+	return NewHandler(&mockStorage{}, cache.NewCache(10, logger, nil), logger, "")
 }
 
 // TestHealthcheckHandle verifies the health check endpoint returns correct status.

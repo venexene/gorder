@@ -15,19 +15,19 @@ import (
 	"github.com/segmentio/kafka-go"
 
 	"github.com/venexene/gorder/internal/cache"
-	"github.com/venexene/gorder/internal/database"
+	"github.com/venexene/gorder/internal/storage"
 )
 
 // Handler holds dependencies for HTTP request handlers.
 type Handler struct {
-	storage      database.StorageInterface
+	storage      storage.Interface
 	cache        *cache.Cache
 	logger       *slog.Logger
 	kafkaBrokers string
 }
 
 // NewHandler creates a Handler with the given dependencies.
-func NewHandler(storage database.StorageInterface, cache *cache.Cache, logger *slog.Logger, kafkaBrokers string) *Handler {
+func NewHandler(storage storage.Interface, cache *cache.Cache, logger *slog.Logger, kafkaBrokers string) *Handler {
 	return &Handler{
 		storage:      storage,
 		cache:        cache,
@@ -36,8 +36,7 @@ func NewHandler(storage database.StorageInterface, cache *cache.Cache, logger *s
 	}
 }
 
-// HealthcheckHandle checks database and Kafka connectivity in parallel.
-// Returns 200 OK when all dependencies are healthy, 503 otherwise.
+// HealthcheckHandle checks database and Kafka connectivity.
 func (h *Handler) HealthcheckHandle(c *gin.Context) {
 	var wg sync.WaitGroup
 	var healthy atomic.Bool

@@ -10,8 +10,9 @@ import (
 	"github.com/segmentio/kafka-go"
 
 	"github.com/venexene/gorder/internal/cache"
-	"github.com/venexene/gorder/internal/database"
+	"github.com/venexene/gorder/internal/metrics"
 	"github.com/venexene/gorder/internal/models"
+	"github.com/venexene/gorder/internal/storage"
 )
 
 // MessageReader abstracts reading messages from a message broker.
@@ -23,14 +24,15 @@ type MessageReader interface {
 // Consumer reads orders from topic and persists them.
 type Consumer struct {
 	reader    MessageReader
-	storage   database.StorageInterface
+	storage   storage.Interface
 	validator *validator.Validate
 	cache     *cache.Cache
 	logger    *slog.Logger
+	metrics   *metrics.Metrics
 }
 
 // NewConsumer creates a Consumer.
-func NewConsumer(reader MessageReader, storage database.StorageInterface, cache *cache.Cache, logger *slog.Logger) *Consumer {
+func NewConsumer(reader MessageReader, storage storage.Interface, cache *cache.Cache, logger *slog.Logger, metrics *metrics.Metrics) *Consumer {
 	validate := validator.New()
 
 	return &Consumer{
@@ -39,10 +41,11 @@ func NewConsumer(reader MessageReader, storage database.StorageInterface, cache 
 		validator: validate,
 		cache:     cache,
 		logger:    logger,
+		metrics:   metrics,
 	}
 }
 
-// Consume starts reading messages from Kafka in a blocking loop until the context is cancelled.
+// Consume reading messages from Kafka in a blocking loop.
 func (c *Consumer) Consume(ctx context.Context) {
 	for {
 		msg, err := c.readMessage(ctx)
@@ -67,6 +70,9 @@ func (c *Consumer) Consume(ctx context.Context) {
 		} else {
 			c.logger.Info("order saved", "order_uid", order.OrderUID)
 			c.cache.Set(order)
+			if c.metrics != nil {
+				c.metrics.OrdersProcessed.Add(1)
+			}
 		}
 	}
 }
