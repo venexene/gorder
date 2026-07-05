@@ -183,7 +183,9 @@ func TestConsume_Successful(t *testing.T) {
 	cc := cache.NewCache(10, logger, nil)
 	c := NewConsumer(reader, storage, cc, logger, nil)
 
-	c.Consume(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	defer cancel()
+	c.Consume(ctx)
 
 	if len(storage.addOrderCalls) != 1 {
 		t.Fatalf("expected 1 AddOrder call, got %d", len(storage.addOrderCalls))
@@ -207,7 +209,9 @@ func TestConsume_SkipInvalid(t *testing.T) {
 	storage := newMockStorage()
 	c := NewConsumer(reader, storage, cache.NewCache(10, logger, nil), logger, nil)
 
-	c.Consume(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	defer cancel()
+	c.Consume(ctx)
 
 	if len(storage.addOrderCalls) != 1 {
 		t.Fatalf("expected 1 AddOrder call, got %d", len(storage.addOrderCalls))
@@ -225,7 +229,9 @@ func TestConsume_Duplicate(t *testing.T) {
 	cc := cache.NewCache(10, logger, nil)
 	c := NewConsumer(reader, storage, cc, logger, nil)
 
-	c.Consume(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	defer cancel()
+	c.Consume(ctx)
 
 	if _, exists := cc.Get("e1a2b3c4-d5e6-4f8a-9b0c-1d2e3f4a5b6c"); exists {
 		t.Error("duplicate order should not be cached")
@@ -243,7 +249,9 @@ func TestConsume_GracefulShutdown(t *testing.T) {
 	storage := newMockStorage()
 	c := NewConsumer(reader, storage, cache.NewCache(10, logger, nil), logger, nil)
 
-	c.Consume(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	defer cancel()
+	c.Consume(ctx)
 
 	if len(storage.addOrderCalls) != 3 {
 		t.Errorf("expected 3 AddOrder calls, got %d", len(storage.addOrderCalls))

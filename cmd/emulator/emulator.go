@@ -10,32 +10,11 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/segmentio/kafka-go"
 
 	"github.com/venexene/gorder/internal/models"
 )
-
-// loadOrderFromFile reads and validates an Order from a JSON file.
-func loadOrderFromFile(path string) (*models.Order, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read file %s: %v", path, err)
-	}
-
-	var order models.Order
-	if err := json.Unmarshal(data, &order); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal JSON: %v", err)
-	}
-
-	validate := validator.New()
-	if err := validate.Struct(order); err != nil {
-		return nil, fmt.Errorf("failed to validate order: %v", err)
-	}
-
-	return &order, nil
-}
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -72,7 +51,7 @@ func main() {
 	}
 	for i := 1; i < 6; i++ {
 		filename := filepath.Join("testdata", fmt.Sprintf("order%d.json", i))
-		order, err := loadOrderFromFile(filename)
+		order, err := models.LoadOrderFromFile(filename)
 		if err != nil {
 			logger.Error("failed to load order from file", "error", err)
 			continue
