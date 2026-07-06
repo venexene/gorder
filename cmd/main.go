@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"html/template"
 	"log/slog"
 	"net/http"
 	"os"
@@ -10,6 +10,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"io/fs"
 
 	"github.com/gin-gonic/gin"
 	ginprom "github.com/logocomune/gin-prometheus"
@@ -22,12 +23,14 @@ import (
 	"github.com/venexene/gorder/internal/metrics"
 	"github.com/venexene/gorder/internal/middleware"
 	"github.com/venexene/gorder/internal/storage"
+	"github.com/venexene/gorder"
 )
 
 func main() {
 	cfg, err := config.Load(".env")
 	if err != nil {
-		log.Fatalf("failed to load config: %v", err)
+		slog.Error("failed to load config", "error", err)
+		os.Exit(1)
 	}
 
 	var logHandler slog.Handler
@@ -101,8 +104,15 @@ func main() {
 	router.Use(middleware.All(m)...)
 	logger.Info("created GIN router")
 
-	router.LoadHTMLGlob("web/templates/*")
-	router.Static("/static", "./web/static")
+	router.SetHTMLTemplate(template.Must(
+		template.ParseFS(gorder.TemplatesFS, "web/templates/*"),
+	))
+	sub, err := fs.Sub(gorder.StaticFS, "web/static")
+	if err != nil {
+		logger.Error("failed to init static filesystem", "error" , err)
+		os.Exit(1)
+	}
+	router.StaticFS("/static", http.FS(sub))
 
 	handler := handlers.NewHandler(s, co, c, logger)
 

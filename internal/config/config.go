@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"log/slog"
 
 	"github.com/joho/godotenv"
 )
@@ -27,7 +28,10 @@ type Config struct {
 // Load reads the given env file and returns Config.
 func Load(path string) (*Config, error) {
 	if err := godotenv.Overload(path); err != nil {
-		return nil, err
+		if !os.IsNotExist(err) {
+            return nil, fmt.Errorf("failed to load .env: %w", err)
+        }
+        slog.Warn(".env file not found, using OS environment variables")
 	}
 
 	cacheCapacityRaw := os.Getenv("CACHE_CAPACITY")
@@ -61,6 +65,9 @@ func Load(path string) (*Config, error) {
 
 	if cfg.HTTPPort == "" {
 		cfg.HTTPPort = "8080"
+	}
+	if cfg.LogFormat == "" {
+		cfg.LogFormat = "text"
 	}
 	if cfg.DBHost == "" {
 		return nil, fmt.Errorf("DB_HOST is required")

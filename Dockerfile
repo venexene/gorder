@@ -1,23 +1,16 @@
-FROM golang:1.25
-
-# Установка рабочей директории
+FROM golang:1.25 AS builder
 WORKDIR /app
-
-# Копирование зависимостей
 COPY go.mod go.sum ./
 RUN go mod download
-
-# Копирование проекта
 COPY . .
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /app/main ./cmd
 
-# Сборка приложения
-RUN go build -o main ./cmd
 
-# Открытие порта
+FROM alpine:3.24
+RUN apk add --no-cache ca-certificates tzdata curl
+WORKDIR /app
+COPY --from=builder /app/main .
+COPY migrations/ ./migrations/
 EXPOSE 8080
-
-# Установка возможности запускать main
-RUN chmod +x main
-
-# Запуск приложения из папки cmd
+USER 10001:10001
 CMD ["./main"]

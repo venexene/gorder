@@ -1,17 +1,11 @@
-FROM golang:1.25
-
-# Установка рабочей директории
+FROM golang:1.25 AS builder
 WORKDIR /app
-
-# Копирование файлов зависимостей
 COPY go.mod go.sum ./
 RUN go mod download
-
-# Копирование проекта
 COPY . .
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o emulator ./cmd/emulator
 
-# Сборка приложения
-RUN go build -o emulator ./cmd/emulator
-
-# Запуск эмулятора-продюсера
+FROM alpine:3.24
+WORKDIR /app
+COPY --from=builder /app/emulator .
 CMD ["./emulator"]

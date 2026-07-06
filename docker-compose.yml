@@ -1,7 +1,7 @@
 services:
 
   db:
-    image: postgres
+    image: postgres:18
     container_name: gorder-database
     restart: always
     environment:
@@ -11,7 +11,7 @@ services:
     ports:
       - "${DB_PORT}"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 5s
@@ -36,6 +36,9 @@ services:
       retries: 3
       start_period: 10s
     environment:
+       - HTTP_PORT=${HTTP_PORT}
+       - CACHE_CAPACITY=${CACHE_CAPACITY}
+       - LOG_FORMAT=${LOG_FORMAT}
        - DB_HOST=${DB_HOST}
        - DB_PORT=${DB_PORT}
        - DB_USER=${DB_USER}
@@ -53,24 +56,23 @@ services:
 
   
   kafka:
-    image: bitnami/kafka:latest
+    image: apache/kafka:4.0.0
     container_name: gorder-kafka
     ports:
       - "${KAFKA_PORT}:9092"
     environment:
-      - KAFKA_CFG_NODE_ID=0
-      - KAFKA_CFG_PROCESS_ROLES=controller,broker
-      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
-      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
-      - ALLOW_PLAINTEXT_LISTENER=yes
+      KAFKA_NODE_ID: 0
+      KAFKA_PROCESS_ROLES: "controller,broker"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "0@kafka:9093"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
     volumes:
-      - kafka_data:/bitnami
+      - kafka_data:/var/lib/kafka/data
     healthcheck:
-      test: ["CMD-SHELL", "/opt/bitnami/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092"]
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092"]
       interval: 10s
       timeout: 20s
       retries: 10
@@ -81,20 +83,17 @@ services:
     
 
   kafka-topics-setup:
-    image: bitnami/kafka:latest
+    image: apache/kafka:4.0.0
     depends_on:
       kafka:
         condition: service_healthy
-    environment:
-      - KAFKA_TOPIC=${KAFKA_TOPIC}
     command: >
-      bash -c "
-      echo 'Waiting for Kafka...';
+      sh -c "
       sleep 15;
-      /opt/bitnami/kafka/bin/kafka-topics.sh --create --if-not-exists
-      --bootstrap-server kafka:9092 
-      --topic $${KAFKA_TOPIC} 
-      --partitions 1 
+      /opt/kafka/bin/kafka-topics.sh --create --if-not-exists
+      --bootstrap-server kafka:9092
+      --topic $${KAFKA_TOPIC}
+      --partitions 1
       --replication-factor 1
       "
     networks:
@@ -111,19 +110,15 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
-    command: >
-      bash -c "
-      echo 'Waiting for Kafka and topic to be ready...';
-      sleep 15;
-      ./emulator
-      "
+      kafka-topics-setup:
+        condition: service_completed_successfully
     networks:
       - orders-network
     restart: on-failure
 
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.13.0
     container_name: gorder-prometheus
     ports:
       - "${PROMETHEUS_PORT}:9090"
@@ -138,7 +133,7 @@ services:
     restart: unless-stopped
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:12.2
     container_name: gorder-grafana
     ports:
       - "${GRAFANA_PORT}:3000"
