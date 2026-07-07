@@ -116,8 +116,12 @@ func main() {
 
 	handler := handlers.NewHandler(s, co, c, logger)
 
-	router.GET("/health", func(c *gin.Context) {
-		handler.HealthcheckHandle(c)
+	router.GET("/health/live", func(c *gin.Context) {
+		handler.LiveCheckHandle(c)
+	})
+
+	router.GET("/health/ready", func(c *gin.Context) {
+		handler.ReadyCheckHandle(c)
 	})
 
 	router.GET("/metrics", gin.WrapH(ginprom.GetMetricHandler()))
@@ -141,6 +145,9 @@ func main() {
 	srv := &http.Server{
 		Addr:    ":" + cfg.HTTPPort,
 		Handler: router,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  120 * time.Second,
 	}
 	logger.Info("created server")
 

@@ -35,8 +35,13 @@ func NewHandler(storage storage.Interface, consumer consumer.HealthChecker, cach
 	}
 }
 
-// HealthcheckHandle checks database and Kafka connectivity.
-func (h *Handler) HealthcheckHandle(c *gin.Context) {
+// LiveCheckHandle checks service liveness.
+func (h *Handler) LiveCheckHandle(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"status":"UP"})
+}
+
+// ReadyCheckHandle checks database and Kafka connectivity.
+func (h *Handler) ReadyCheckHandle(c *gin.Context) {
 	var wg sync.WaitGroup
 	var healthy atomic.Bool
 	healthy.Store(true)
