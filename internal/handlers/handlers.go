@@ -17,6 +17,11 @@ import (
 	"github.com/venexene/gorder/internal/storage"
 )
 
+const (
+	statusDown = "DOWN"
+	statusUp = "UP"
+)
+
 // Handler holds dependencies for HTTP request handlers.
 type Handler struct {
 	storage  storage.Interface
@@ -37,7 +42,7 @@ func NewHandler(storage storage.Interface, consumer consumer.HealthChecker, cach
 
 // LiveCheckHandle checks service liveness.
 func (h *Handler) LiveCheckHandle(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"status": "UP"})
+	c.JSON(http.StatusOK, gin.H{"status": statusUp})
 }
 
 // ReadyCheckHandle checks database and Kafka connectivity.
@@ -55,7 +60,7 @@ func (h *Handler) ReadyCheckHandle(c *gin.Context) {
 		defer cancel()
 		if err := h.storage.CheckHealthDB(ctxDB); err != nil {
 			healthy.Store(false)
-			dbStatus = "DOWN"
+			dbStatus = statusDown
 			return
 		}
 	}()
@@ -68,7 +73,7 @@ func (h *Handler) ReadyCheckHandle(c *gin.Context) {
 
 		if err := h.consumer.CheckHealth(ctxKafka); err != nil {
 			healthy.Store(false)
-			consumerStatus = "DOWN"
+			consumerStatus = statusDown
 			return
 		}
 	}()
@@ -77,13 +82,13 @@ func (h *Handler) ReadyCheckHandle(c *gin.Context) {
 
 	if healthy.Load() {
 		c.JSON(http.StatusOK, gin.H{
-			"status": "UP",
+			"status": statusUp,
 			"db":     dbStatus,
 			"kafka":  consumerStatus,
 		})
 	} else {
 		c.JSON(http.StatusServiceUnavailable, gin.H{
-			"status": "DOWN",
+			"status": statusDown,
 			"db":     dbStatus,
 			"kafka":  consumerStatus,
 		})

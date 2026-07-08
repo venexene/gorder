@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -184,7 +185,14 @@ func (s *Storage) AddOrder(ctx context.Context, order *models.Order) error {
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+
+	defer func() {
+		if err != nil {
+			if rbErr := tx.Rollback(ctx); rbErr != nil {
+				slog.Error("rollback failed", "error", rbErr)
+			}
+		}
+	}()
 
 	orderQuery := `
         INSERT INTO orders (

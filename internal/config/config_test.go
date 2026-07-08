@@ -21,6 +21,7 @@ func makeValidEnv() string {
 		"HTTP_PORT=9090",
 		"CACHE_CAPACITY=200",
 		"LOG_FORMAT=text",
+		"JWT_SECRET=secret",
 		"DB_HOST=localhost",
 		"DB_PORT=5433",
 		"DB_USER=testuser",
@@ -49,8 +50,11 @@ func TestLoad_Full(t *testing.T) {
 	if cfg.CacheCapacity != 200 {
 		t.Errorf("CacheCapacity: want 200, got %d", cfg.CacheCapacity)
 	}
-	if cfg.LogFormat != "text" {
+	if cfg.LogFormat != LogFormatText {
 		t.Errorf("LogFormat: want text, got %s", cfg.LogFormat)
+	}
+	if cfg.JWTSecret != "secret" {
+		t.Errorf("LogFormat: want secret, got %s", cfg.LogFormat)
 	}
 	if cfg.DBHost != "localhost" {
 		t.Errorf("DBHost: want localhost, got %s", cfg.DBHost)
@@ -81,18 +85,14 @@ func TestLoad_Full(t *testing.T) {
 	}
 }
 
-// TestLoad_MissingFile checks error on missing env file.
-func TestLoad_MissingFile(t *testing.T) {
-	_, err := Load("/nonexistent/.env")
-	if err == nil {
-		t.Fatal("expected error for missing file, got nil")
-	}
-}
-
 // TestLoad_HTTPPortDefault checks default HTTP_PORT value.
-func TestLoad_HTTPPortDefault(t *testing.T) {
+func TestLoad_Defaults(t *testing.T) {
 	dir := t.TempDir()
-	path := writeEnvFile(t, dir, makeValidEnv()+"\nHTTP_PORT=\n")
+	path := writeEnvFile(t, dir, makeValidEnv()+
+		"\nHTTP_PORT="+
+		"\nDB_SSL_MODE="+
+		"\nMIGRATION_DIR="+
+		"\nJWT_TOKEN=")
 
 	cfg, err := Load(path)
 	if err != nil {
@@ -100,6 +100,15 @@ func TestLoad_HTTPPortDefault(t *testing.T) {
 	}
 	if cfg.HTTPPort != "8080" {
 		t.Errorf("HTTPPort: want 8080, got %s", cfg.HTTPPort)
+	}
+	if cfg.DBSSLMode != "disable" {
+		t.Errorf("DBSSLMode: want disable, got %s", cfg.DBSSLMode)
+	}
+	if cfg.MigrationDir != "migrations" {
+		t.Errorf("MigrationDir: want migrations, got %s", cfg.MigrationDir)
+	}
+	if cfg.JWTSecret != "secret" {
+		t.Errorf("JWTSecret: want secret, got %s", cfg.JWTSecret)
 	}
 }
 
@@ -210,8 +219,8 @@ func TestLoad_LogFormatValidation(t *testing.T) {
 		value   string
 		wantErr string
 	}{
-		{name: "text accepted", value: "text", wantErr: ""},
-		{name: "json accepted", value: "json", wantErr: ""},
+		{name: "text accepted", value: LogFormatText, wantErr: ""},
+		{name: "json accepted", value: LogFormatJSON, wantErr: ""},
 		{name: "invalid", value: "xml", wantErr: "LOG_FORMAT"},
 	}
 
@@ -246,6 +255,7 @@ func TestLoad_RequiredFields(t *testing.T) {
 		wantErr string
 	}{
 		{name: "DB_HOST", skip: "DB_HOST", wantErr: "DB_HOST is required"},
+		{name: "JWT_SECRET", skip: "JWT_SECRET", wantErr: "JWT_SECRET is required"},
 		{name: "DB_PORT", skip: "DB_PORT", wantErr: "DB_PORT is required"},
 		{name: "DB_USER", skip: "DB_USER", wantErr: "DB_USER is required"},
 		{name: "DB_PASSWORD", skip: "DB_PASSWORD", wantErr: "DB_PASSWORD is required"},

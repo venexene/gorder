@@ -26,6 +26,11 @@ type Config struct {
 	KafkaTopic    string
 }
 
+const (
+	LogFormatText = "text"
+	LogFormatJSON = "json"
+)
+
 // Load reads the given env file and returns Config.
 func Load(path string) (*Config, error) {
 	if err := godotenv.Overload(path); err != nil {
@@ -61,7 +66,7 @@ func Load(path string) (*Config, error) {
 		KafkaTopic:    os.Getenv("KAFKA_TOPIC"),
 	}
 
-	if cfg.LogFormat != "text" && cfg.LogFormat != "json" {
+	if cfg.LogFormat != LogFormatText && cfg.LogFormat != LogFormatJSON {
 		return nil, fmt.Errorf("LOG_FORMAT must be text or json")
 	}
 
@@ -69,7 +74,7 @@ func Load(path string) (*Config, error) {
 		cfg.HTTPPort = "8080"
 	}
 	if cfg.LogFormat == "" {
-		cfg.LogFormat = "text"
+		cfg.LogFormat = LogFormatText
 	}
 	if cfg.JWTSecret == "" {
 		return nil, fmt.Errorf("JWT_SECRET is required")
