@@ -17,17 +17,14 @@ linters-settings:
     locale: US
 
 issues:
-  exclude:
-    - path: migrations/
-      linters: all
-    - path: testdata/
-      linters: all
-    - path: cmd/emulator/
-      linters: all
-    - path: cmd/gen-token/
-      linters: all
-    - path: embed.go
-      linters: all
+  exclude-dirs:
+    - migrations
+    - testdata
+  exclude-files:
+    - "cmd/emulator/.*"
+    - "cmd/gen-token/.*"
+    - "embed\\.go"
+  exclude-rules:
     - path: _test\.go
       linters:
         - errcheck
