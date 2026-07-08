@@ -16,6 +16,10 @@ import (
 	"github.com/venexene/gorder/internal/models"
 )
 
+func setTestUser(c *gin.Context, userID string) {
+	c.Set("user_id", userID)
+}
+
 type mockStorage struct {
 	healthError error
 }
@@ -77,7 +81,6 @@ func TestLiveCheckHandle(t *testing.T) {
 		t.Errorf("expected 200, got %d", w.Code)
 	}
 }
-
 
 // TestReadyCheckHandle_Up verifies 200 UP when both DB and Kafka are healthy.
 func TestReadyCheckHandle_Up(t *testing.T) {
@@ -143,6 +146,35 @@ func TestReadyCheckHandle_DBDown(t *testing.T) {
 	}
 }
 
+// TestGetOrderByUIDHandle_NoAuth verifies 401 when user_id is missing from context.
+func TestGetOrderByUIDHandle_NoAuth(t *testing.T) {
+	handler := newTestHandler()
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("GET", "/", nil)
+	c.Params = []gin.Param{{Key: "uid", Value: "exist"}}
+
+	handler.GetOrderByUIDHandle(c)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", w.Code)
+	}
+}
+
+// TestGetAllOrdersUIDHandle_NoAuth verifies 401 when user_id is missing.
+func TestGetAllOrdersUIDHandle_NoAuth(t *testing.T) {
+	handler := newTestHandler()
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("GET", "/", nil)
+
+	handler.GetAllOrdersUIDHandle(c)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", w.Code)
+	}
+}
+
 // TestGetOrderByUIDHandle_Existing checks known UID.
 func TestGetOrderByUIDHandle_Existing(t *testing.T) {
 	handler := newTestHandler()
@@ -150,6 +182,7 @@ func TestGetOrderByUIDHandle_Existing(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest("GET", "/", nil)
 	c.Params = []gin.Param{{Key: "uid", Value: "exist"}}
+	setTestUser(c, "test-user")
 
 	handler.GetOrderByUIDHandle(c)
 
@@ -173,6 +206,7 @@ func TestGetOrderByUIDHandle_Missing(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest("GET", "/", nil)
 	c.Params = []gin.Param{{Key: "uid", Value: "nosuchorder"}}
+	setTestUser(c, "test-user")
 
 	handler.GetOrderByUIDHandle(c)
 
@@ -188,6 +222,7 @@ func TestGetOrderByUIDHandle_EmptyUID(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest("GET", "/", nil)
 	c.Params = []gin.Param{{Key: "uid", Value: ""}}
+	setTestUser(c, "test-user")
 
 	handler.GetOrderByUIDHandle(c)
 
@@ -206,6 +241,7 @@ func TestGetOrderByUIDHandle_CacheHit(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest("GET", "/", nil)
 	c.Params = []gin.Param{{Key: "uid", Value: "cached-uid"}}
+	setTestUser(c, "test-user")
 
 	handler.GetOrderByUIDHandle(c)
 
@@ -225,6 +261,7 @@ func TestGetAllOrdersUIDHandle(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest("GET", "/", nil)
+	setTestUser(c, "test-user")
 
 	handler.GetAllOrdersUIDHandle(c)
 

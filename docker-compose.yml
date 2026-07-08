@@ -39,6 +39,7 @@ services:
        - HTTP_PORT=${HTTP_PORT}
        - CACHE_CAPACITY=${CACHE_CAPACITY}
        - LOG_FORMAT=${LOG_FORMAT}
+       - JWT_SECRET=${JWT_SECRET}
        - DB_HOST=${DB_HOST}
        - DB_PORT=${DB_PORT}
        - DB_USER=${DB_USER}

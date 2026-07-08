@@ -2,9 +2,9 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strconv"
-	"log/slog"
 
 	"github.com/joho/godotenv"
 )
@@ -14,6 +14,7 @@ type Config struct {
 	HTTPPort      string
 	CacheCapacity int
 	LogFormat     string
+	JWTSecret     string
 	DBHost        string
 	DBPort        string
 	DBUser        string
@@ -29,9 +30,9 @@ type Config struct {
 func Load(path string) (*Config, error) {
 	if err := godotenv.Overload(path); err != nil {
 		if !os.IsNotExist(err) {
-            return nil, fmt.Errorf("failed to load .env: %w", err)
-        }
-        slog.Warn(".env file not found, using OS environment variables")
+			return nil, fmt.Errorf("failed to load .env: %w", err)
+		}
+		slog.Warn(".env file not found, using OS environment variables")
 	}
 
 	cacheCapacityRaw := os.Getenv("CACHE_CAPACITY")
@@ -48,6 +49,7 @@ func Load(path string) (*Config, error) {
 		HTTPPort:      os.Getenv("HTTP_PORT"),
 		CacheCapacity: cacheCapacity,
 		LogFormat:     os.Getenv("LOG_FORMAT"),
+		JWTSecret:     os.Getenv("JWT_SECRET"),
 		DBHost:        os.Getenv("DB_HOST"),
 		DBPort:        os.Getenv("DB_PORT"),
 		DBUser:        os.Getenv("DB_USER"),
@@ -68,6 +70,9 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.LogFormat == "" {
 		cfg.LogFormat = "text"
+	}
+	if cfg.JWTSecret == "" {
+		return nil, fmt.Errorf("JWT_SECRET is required")
 	}
 	if cfg.DBHost == "" {
 		return nil, fmt.Errorf("DB_HOST is required")

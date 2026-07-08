@@ -37,7 +37,7 @@ func NewHandler(storage storage.Interface, consumer consumer.HealthChecker, cach
 
 // LiveCheckHandle checks service liveness.
 func (h *Handler) LiveCheckHandle(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"status":"UP"})
+	c.JSON(http.StatusOK, gin.H{"status": "UP"})
 }
 
 // ReadyCheckHandle checks database and Kafka connectivity.
@@ -92,8 +92,18 @@ func (h *Handler) ReadyCheckHandle(c *gin.Context) {
 
 // GetOrderByUIDHandle returns full order data as JSON, using cache when available.
 func (h *Handler) GetOrderByUIDHandle(c *gin.Context) {
+	userID, ok := c.Get("user_id")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "User is not logged",
+		})
+		return
+	}
+	userLogger := h.logger.With("user_id", userID)
+
 	orderUID := c.Param("uid")
 	if orderUID == "" {
+		userLogger.Warn("no uid recieved")
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "No UID received",
 		})
@@ -108,12 +118,12 @@ func (h *Handler) GetOrderByUIDHandle(c *gin.Context) {
 	order, err := h.storage.GetOrderByUID(c.Request.Context(), orderUID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			h.logger.Warn("order not found", "order_uid", orderUID)
+			userLogger.Warn("order not found", "order_uid", orderUID)
 			c.JSON(http.StatusNotFound, gin.H{
 				"error": "Failed to find order",
 			})
 		} else {
-			h.logger.Error("failed to get info by uid", "error", err)
+			userLogger.Error("failed to get info by uid", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": "Internal server error",
 			})
@@ -127,10 +137,18 @@ func (h *Handler) GetOrderByUIDHandle(c *gin.Context) {
 
 // GetAllOrdersUIDHandle returns all order UIDs as JSON.
 func (h *Handler) GetAllOrdersUIDHandle(c *gin.Context) {
-	orderUIDs, err := h.storage.GetAllOrdersUID(c.Request.Context())
+	userID, ok := c.Get("user_id")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "User is not logged",
+		})
+		return
+	}
+	userLogger := h.logger.With("user_id", userID)
 
+	orderUIDs, err := h.storage.GetAllOrdersUID(c.Request.Context())
 	if err != nil {
-		h.logger.Error("failed to get uids", "error", err)
+		userLogger.Error("failed to get uids", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to get order UIDs",
 		})

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"html/template"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -10,12 +11,12 @@ import (
 	"strings"
 	"syscall"
 	"time"
-	"io/fs"
 
 	"github.com/gin-gonic/gin"
 	ginprom "github.com/logocomune/gin-prometheus"
 	"github.com/segmentio/kafka-go"
 
+	"github.com/venexene/gorder"
 	"github.com/venexene/gorder/internal/cache"
 	"github.com/venexene/gorder/internal/config"
 	"github.com/venexene/gorder/internal/consumer"
@@ -23,7 +24,6 @@ import (
 	"github.com/venexene/gorder/internal/metrics"
 	"github.com/venexene/gorder/internal/middleware"
 	"github.com/venexene/gorder/internal/storage"
-	"github.com/venexene/gorder"
 )
 
 func main() {
@@ -101,7 +101,6 @@ func main() {
 	logger.Info("started consume process", "topic", cfg.KafkaTopic)
 
 	router := gin.Default()
-	router.Use(middleware.All(m)...)
 	logger.Info("created GIN router")
 
 	router.SetHTMLTemplate(template.Must(
@@ -109,12 +108,15 @@ func main() {
 	))
 	sub, err := fs.Sub(gorder.StaticFS, "web/static")
 	if err != nil {
-		logger.Error("failed to init static filesystem", "error" , err)
+		logger.Error("failed to init static filesystem", "error", err)
 		os.Exit(1)
 	}
 	router.StaticFS("/static", http.FS(sub))
 
 	handler := handlers.NewHandler(s, co, c, logger)
+
+	router.Use(middleware.MetricsMiddleware(m))
+	router.Use(ginprom.Middleware())
 
 	router.GET("/health/live", func(c *gin.Context) {
 		handler.LiveCheckHandle(c)
@@ -126,25 +128,32 @@ func main() {
 
 	router.GET("/metrics", gin.WrapH(ginprom.GetMetricHandler()))
 
-	router.GET("/api/orders/:uid", func(c *gin.Context) {
-		handler.GetOrderByUIDHandle(c)
-	})
+	public := router.Group("")
+	{
+		public.GET("/", func(c *gin.Context) {
+			handler.AllOrdersPageHandle(c)
+		})
 
-	router.GET("/api/all_orders_uids", func(c *gin.Context) {
-		handler.GetAllOrdersUIDHandle(c)
-	})
+		public.GET("/:uid", func(c *gin.Context) {
+			handler.OrderPageHandle(c)
+		})
+	}
 
-	router.GET("/", func(c *gin.Context) {
-		handler.AllOrdersPageHandle(c)
-	})
+	protected := router.Group("/api")
+	protected.Use(middleware.JWTAuth(cfg.JWTSecret))
+	{
+		protected.GET("/orders/:uid", func(c *gin.Context) {
+			handler.GetOrderByUIDHandle(c)
+		})
 
-	router.GET("/:uid", func(c *gin.Context) {
-		handler.OrderPageHandle(c)
-	})
+		protected.GET("/all_orders_uids", func(c *gin.Context) {
+			handler.GetAllOrdersUIDHandle(c)
+		})
+	}
 
 	srv := &http.Server{
-		Addr:    ":" + cfg.HTTPPort,
-		Handler: router,
+		Addr:         ":" + cfg.HTTPPort,
+		Handler:      router,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  120 * time.Second,
