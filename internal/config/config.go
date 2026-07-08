@@ -89,7 +89,13 @@ func Load(path string) (*Config, error) {
 	if cfg.DBName == "" {
 		return nil, fmt.Errorf("DB_NAME is required")
 	}
-	if cfg.KafkaBrokers == "" {
+	if cfg.DBSSLMode == "" {
+		cfg.DBSSLMode = "disable"
+	}
+	if cfg.MigrationDir == "" {
+		cfg.MigrationDir = "migrations"
+	}
+ 	if cfg.KafkaBrokers == "" {
 		return nil, fmt.Errorf("KAFKA_BROKERS is required")
 	}
 	if cfg.KafkaTopic == "" {

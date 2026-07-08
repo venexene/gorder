@@ -90,8 +90,10 @@ func Run() error {
 	defer dep.Consumer.Close()
 	dep.Logger.Info("created message consumer")
 
+	consumerDone := make(chan struct{})
 	go func() {
 		dep.Consumer.Consume(ctx)
+		close(consumerDone)
 	}()
 	dep.Logger.Info("started consume process", "topic", dep.Config.KafkaTopic)
 
@@ -122,6 +124,8 @@ func Run() error {
 	select {
 	case <-ctx.Done():
 		dep.Logger.Info("shutting down server...")
+
+		<-consumerDone
 
 		ctxShutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
