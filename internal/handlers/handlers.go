@@ -108,7 +108,7 @@ func (h *Handler) GetOrderByUIDHandle(c *gin.Context) {
 
 	orderUID := c.Param("uid")
 	if orderUID == "" {
-		userLogger.Warn("no uid recieved")
+		userLogger.Warn("no uid received")
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "No UID received",
 		})

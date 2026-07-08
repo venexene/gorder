@@ -29,6 +29,7 @@ type Config struct {
 const (
 	LogFormatText = "text"
 	LogFormatJSON = "json"
+	DefaultMigrationDir = "migrations"
 )
 
 // Load reads the given env file and returns Config.
