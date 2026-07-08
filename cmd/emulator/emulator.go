@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/segmentio/kafka-go"
@@ -19,7 +20,12 @@ import (
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	kafkaBrokers := []string{"kafka:9092"}
+	brokers := os.Getenv("KAFKA_BROKERS")
+	if brokers == "" {
+		brokers = "kafka:9092"
+	}
+	kafkaBrokers := strings.Split(brokers, ",")
+	
 	topic := "wbl0_orders"
 	writer := &kafka.Writer{
 		Addr:  kafka.TCP(kafkaBrokers...),
