@@ -171,40 +171,61 @@ func createRouter(dep *Dependencies) (*gin.Engine, error) {
 	}
 	router.StaticFS("/static", http.FS(sub))
 
-	handler := handlers.NewHandler(dep.Storage, dep.Consumer, dep.Cache, dep.Logger)
+	hd := &handlers.HandlerDependencies{
+		Storage: dep.Storage,
+		Consumer: dep.Consumer,
+		Cache: dep.Cache,
+		Logger: dep.Logger,
+		Config: dep.Config,
+	}
+	handler := handlers.NewHandler(hd)
 
 	router.Use(middleware.MetricsMiddleware(dep.Metrics))
 	router.Use(ginprom.Middleware())
 
-	router.GET("/health/live", func(c *gin.Context) {
-		handler.LiveCheckHandle(c)
-	})
-
-	router.GET("/health/ready", func(c *gin.Context) {
-		handler.ReadyCheckHandle(c)
-	})
-
-	router.GET("/metrics", gin.WrapH(ginprom.GetMetricHandler()))
-
 	public := router.Group("")
 	{
-		public.GET("/", func(c *gin.Context) {
+		public.GET("/health/live", func(c *gin.Context) {
+		handler.LiveCheckHandle(c)
+		})
+
+		public.GET("/health/ready", func(c *gin.Context) {
+			handler.ReadyCheckHandle(c)
+		})
+
+		public.GET("/metrics", gin.WrapH(ginprom.GetMetricHandler()))
+
+		public.POST("/login", func(c *gin.Context) {
+			handler.LoginHandle(c)
+		})
+
+		public.POST("/register", func(c *gin.Context) {
+			handler.RegisterHandle(c)
+		})
+	}
+	
+	user := router.Group("")
+	user.Use(middleware.JWTAuth(dep.Config.JWTSecret))
+	user.Use(middleware.RequireRole("user", "admin"))
+	{
+		user.GET("/", func(c *gin.Context) {
 			handler.AllOrdersPageHandle(c)
 		})
 
-		public.GET("/:uid", func(c *gin.Context) {
+		user.GET("/:uid", func(c *gin.Context) {
 			handler.OrderPageHandle(c)
 		})
 	}
 
-	protected := router.Group("/api")
-	protected.Use(middleware.JWTAuth(dep.Config.JWTSecret))
+	admin := router.Group("/api")
+	admin.Use(middleware.JWTAuth(dep.Config.JWTSecret))
+	admin.Use(middleware.RequireRole("admin"))
 	{
-		protected.GET("/orders/:uid", func(c *gin.Context) {
+		admin.GET("/orders/:uid", func(c *gin.Context) {
 			handler.GetOrderByUIDHandle(c)
 		})
 
-		protected.GET("/all_orders_uids", func(c *gin.Context) {
+		admin.GET("/all_orders_uids", func(c *gin.Context) {
 			handler.GetAllOrdersUIDHandle(c)
 		})
 	}

@@ -55,6 +55,14 @@ func (m *mockStorage) AddOrderIfNotExists(ctx context.Context, order *models.Ord
 	return nil
 }
 
+func (m *mockStorage) CreateUser(ctx context.Context, user *models.User) error {
+	return nil
+}
+
+func (m *mockStorage) GetUser(ctx context.Context, username string) (*models.User, error) {
+	return nil, nil
+}
+
 type mockConsumer struct {
 	healthError error
 }
@@ -65,7 +73,14 @@ func (m *mockConsumer) CheckHealth(ctx context.Context) error {
 
 func newTestHandler() *Handler {
 	logger := slog.New(slog.DiscardHandler)
-	return NewHandler(&mockStorage{}, &mockConsumer{}, cache.NewCache(10, logger, nil), logger)
+	hd := &HandlerDependencies{
+		Storage:  &mockStorage{}, 
+		Consumer: &mockConsumer{},
+		Cache:    cache.NewCache(10, logger, nil),
+		Logger:   logger, 
+		Config: nil,
+	}
+	return NewHandler(hd)
 }
 
 // TestLiveCheckHandle verifies 200 returns by liveness check.

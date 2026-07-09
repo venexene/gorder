@@ -32,6 +32,8 @@ type Interface interface {
 	OrderExists(ctx context.Context, orderUID string) (bool, error)
 	AddOrder(ctx context.Context, order *models.Order) error
 	AddOrderIfNotExists(ctx context.Context, order *models.Order) error
+	CreateUser(ctx context.Context, user *models.User) error
+	GetUser(ctx context.Context, username string) (*models.User, error)
 }
 
 // NewStorage creates a new Storage with the given connection pool and migration path.
@@ -365,4 +367,44 @@ func (s *Storage) GetRecentOrdersUID(ctx context.Context, limit int) ([]string, 
 	}
 
 	return uids, nil
+}
+
+func (s *Storage) CreateUser(ctx context.Context, user *models.User) error {
+	query := `
+        INSERT INTO users (
+            username, password_hash, role
+        ) VALUES ($1, $2, $3)
+    `
+	_, err := s.pool.Exec(ctx, query,
+		user.Username,
+		user.PasswordHash,
+		user.Role,
+	)
+	
+	if err != nil {
+		return fmt.Errorf("failed to insert user: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Storage) GetUser(ctx context.Context, username string) (*models.User, error) {
+	query := `
+		SELECT id, username, password_hash, role FROM users WHERE username = $1
+	`
+	var user models.User
+	err := s.pool.QueryRow(ctx, query, username).Scan(
+		&user.ID,
+		&user.Username,
+		&user.PasswordHash,
+		&user.Role,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("failed to find user with username %v: %w", username, err)
+		}
+		return nil, fmt.Errorf("failed to query database: %w", err)
+	}
+
+	return &user, nil
 }

@@ -71,6 +71,18 @@ type Item struct {
 	Status      uint   `json:"status" validate:"gte=0,max=999"`
 }
 
+type User struct {
+	ID           int    `json:"-"`
+	Username	 string `json:"-"`
+	PasswordHash string `json:"-"`
+	Role		 string `json:"-"`
+}
+
+type LoginRequest struct {
+	Username	 string `json:"username"`
+	Password	 string `json:"password"`
+}
+
 // LoadOrderFromFile reads and validates an Order from a JSON file.
 func LoadOrderFromFile(path string) (*Order, error) {
 	data, err := os.ReadFile(path)

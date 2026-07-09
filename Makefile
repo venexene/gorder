@@ -13,22 +13,22 @@ help:
 	@echo "  emulate  - Emulate producer"
 
 up:
-	docker compose up --build -d
+	@docker compose up --build -d
 
 down:
-	docker compose down -v
+	@docker compose down -v
 
 test:
-	go test ./internal/... -race -count=1
+	@go test ./internal/... -race -count=1
 
 lint:
-	golangci-lint run
+	@golangci-lint run
 
 build:
-	go build -o gorder ./cmd
+	@go build -o gorder ./cmd
 
 clean:
-	rm -f gorder
+	@rm -f gorder
 
 token:
 	@echo "Generating token..."

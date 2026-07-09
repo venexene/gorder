@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/venexene/gorder/internal/cache"
+	"github.com/venexene/gorder/internal/config"
 	"github.com/venexene/gorder/internal/consumer"
 	"github.com/venexene/gorder/internal/storage"
 )
@@ -22,21 +23,31 @@ const (
 	statusUp = "UP"
 )
 
+type HandlerDependencies struct {
+    Storage  storage.Interface
+    Consumer consumer.HealthChecker
+    Cache    *cache.Cache
+    Logger   *slog.Logger
+    Config   *config.Config
+}
+
 // Handler holds dependencies for HTTP request handlers.
 type Handler struct {
 	storage  storage.Interface
 	consumer consumer.HealthChecker
 	cache    *cache.Cache
 	logger   *slog.Logger
+	config 	 *config.Config
 }
 
 // NewHandler creates a Handler with the given dependencies.
-func NewHandler(storage storage.Interface, consumer consumer.HealthChecker, cache *cache.Cache, logger *slog.Logger) *Handler {
+func NewHandler(hd *HandlerDependencies) *Handler {
 	return &Handler{
-		storage:  storage,
-		consumer: consumer,
-		cache:    cache,
-		logger:   logger,
+		storage:  hd.Storage,
+		consumer: hd.Consumer,
+		cache:    hd.Cache,
+		logger:   hd.Logger,
+		config:   hd.Config,
 	}
 }
 

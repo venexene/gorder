@@ -82,6 +82,14 @@ func (m *mockStorage) OrderExists(ctx context.Context, uid string) (bool, error)
 	return false, nil
 }
 
+func (m *mockStorage) CreateUser(ctx context.Context, user *models.User) error {
+	return nil
+}
+
+func (m *mockStorage) GetUser(ctx context.Context, username string) (*models.User, error) {
+	return nil, nil
+}
+
 func validOrderJSON() []byte {
 	order := models.Order{
 		OrderUID:        "e1a2b3c4-d5e6-4f8a-9b0c-1d2e3f4a5b6c",
