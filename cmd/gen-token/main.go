@@ -10,7 +10,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-
 func main() {
 	if err := godotenv.Overload(".env"); err != nil {
 		if !os.IsNotExist(err) {
@@ -27,9 +26,9 @@ func main() {
 	}
 
 	claims := jwt.MapClaims{
-		"sub":  "test-user",
-		"iat":  time.Now().Unix(),
-		"exp":  time.Now().Add(24 * time.Hour).Unix(),
+		"sub":      "test-user",
+		"iat":      time.Now().Unix(),
+		"exp":      time.Now().Add(24 * time.Hour).Unix(),
 		"user_id":  "test-user",
 		"username": "tester",
 		"role":     "admin",
@@ -41,6 +40,6 @@ func main() {
 		slog.Error("failed to sign token")
 		os.Exit(1)
 	}
-	
+
 	fmt.Printf("Token: %s\n", signedToken)
 }

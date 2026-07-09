@@ -58,7 +58,7 @@ func RequireRole(roles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		r, exists := c.Get("role")
 		if !exists {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "role not found"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "role not found"})
 			c.Abort()
 			return
 		}

@@ -29,11 +29,11 @@ import (
 
 type Dependencies struct {
 	Storage  *storage.Storage
-    Consumer *consumer.Consumer
-    Cache    *cache.Cache
-    Metrics  *metrics.Metrics
-    Config   *config.Config
-    Logger   *slog.Logger
+	Consumer *consumer.Consumer
+	Cache    *cache.Cache
+	Metrics  *metrics.Metrics
+	Config   *config.Config
+	Logger   *slog.Logger
 }
 
 func Run() error {
@@ -172,11 +172,11 @@ func createRouter(dep *Dependencies) (*gin.Engine, error) {
 	router.StaticFS("/static", http.FS(sub))
 
 	hd := &handlers.HandlerDependencies{
-		Storage: dep.Storage,
+		Storage:  dep.Storage,
 		Consumer: dep.Consumer,
-		Cache: dep.Cache,
-		Logger: dep.Logger,
-		Config: dep.Config,
+		Cache:    dep.Cache,
+		Logger:   dep.Logger,
+		Config:   dep.Config,
 	}
 	handler := handlers.NewHandler(hd)
 
@@ -186,7 +186,7 @@ func createRouter(dep *Dependencies) (*gin.Engine, error) {
 	public := router.Group("")
 	{
 		public.GET("/health/live", func(c *gin.Context) {
-		handler.LiveCheckHandle(c)
+			handler.LiveCheckHandle(c)
 		})
 
 		public.GET("/health/ready", func(c *gin.Context) {
@@ -202,8 +202,12 @@ func createRouter(dep *Dependencies) (*gin.Engine, error) {
 		public.POST("/register", func(c *gin.Context) {
 			handler.RegisterHandle(c)
 		})
+
+		public.POST("/refresh", func(c *gin.Context) {
+			handler.RefreshHandle(c)
+		})
 	}
-	
+
 	user := router.Group("")
 	user.Use(middleware.JWTAuth(dep.Config.JWTSecret))
 	user.Use(middleware.RequireRole("user", "admin"))
@@ -228,6 +232,7 @@ func createRouter(dep *Dependencies) (*gin.Engine, error) {
 		admin.GET("/all_orders_uids", func(c *gin.Context) {
 			handler.GetAllOrdersUIDHandle(c)
 		})
+
 	}
 
 	return router, nil

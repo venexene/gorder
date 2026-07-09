@@ -8,8 +8,8 @@ import (
 	"math/rand/v2"
 	"os"
 	"path/filepath"
-	"time"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/segmentio/kafka-go"
@@ -25,7 +25,7 @@ func main() {
 		brokers = "kafka:9092"
 	}
 	kafkaBrokers := strings.Split(brokers, ",")
-	
+
 	topic := "wbl0_orders"
 	writer := &kafka.Writer{
 		Addr:  kafka.TCP(kafkaBrokers...),

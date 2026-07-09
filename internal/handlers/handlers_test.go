@@ -74,11 +74,11 @@ func (m *mockConsumer) CheckHealth(ctx context.Context) error {
 func newTestHandler() *Handler {
 	logger := slog.New(slog.DiscardHandler)
 	hd := &HandlerDependencies{
-		Storage:  &mockStorage{}, 
+		Storage:  &mockStorage{},
 		Consumer: &mockConsumer{},
 		Cache:    cache.NewCache(10, logger, nil),
-		Logger:   logger, 
-		Config: nil,
+		Logger:   logger,
+		Config:   nil,
 	}
 	return NewHandler(hd)
 }

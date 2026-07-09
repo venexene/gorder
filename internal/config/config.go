@@ -27,8 +27,8 @@ type Config struct {
 }
 
 const (
-	LogFormatText = "text"
-	LogFormatJSON = "json"
+	LogFormatText       = "text"
+	LogFormatJSON       = "json"
 	DefaultMigrationDir = "migrations"
 )
 
@@ -101,7 +101,7 @@ func Load(path string) (*Config, error) {
 	if cfg.MigrationDir == "" {
 		cfg.MigrationDir = "migrations"
 	}
- 	if cfg.KafkaBrokers == "" {
+	if cfg.KafkaBrokers == "" {
 		return nil, fmt.Errorf("KAFKA_BROKERS is required")
 	}
 	if cfg.KafkaTopic == "" {

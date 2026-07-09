@@ -20,15 +20,15 @@ import (
 
 const (
 	statusDown = "DOWN"
-	statusUp = "UP"
+	statusUp   = "UP"
 )
 
 type HandlerDependencies struct {
-    Storage  storage.Interface
-    Consumer consumer.HealthChecker
-    Cache    *cache.Cache
-    Logger   *slog.Logger
-    Config   *config.Config
+	Storage  storage.Interface
+	Consumer consumer.HealthChecker
+	Cache    *cache.Cache
+	Logger   *slog.Logger
+	Config   *config.Config
 }
 
 // Handler holds dependencies for HTTP request handlers.
@@ -37,7 +37,7 @@ type Handler struct {
 	consumer consumer.HealthChecker
 	cache    *cache.Cache
 	logger   *slog.Logger
-	config 	 *config.Config
+	config   *config.Config
 }
 
 // NewHandler creates a Handler with the given dependencies.

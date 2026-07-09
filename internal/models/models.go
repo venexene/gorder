@@ -73,14 +73,18 @@ type Item struct {
 
 type User struct {
 	ID           int    `json:"-"`
-	Username	 string `json:"-"`
+	Username     string `json:"-"`
 	PasswordHash string `json:"-"`
-	Role		 string `json:"-"`
+	Role         string `json:"-"`
 }
 
 type LoginRequest struct {
-	Username	 string `json:"username"`
-	Password	 string `json:"password"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token"`
 }
 
 // LoadOrderFromFile reads and validates an Order from a JSON file.

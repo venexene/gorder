@@ -380,7 +380,7 @@ func (s *Storage) CreateUser(ctx context.Context, user *models.User) error {
 		user.PasswordHash,
 		user.Role,
 	)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to insert user: %w", err)
 	}
