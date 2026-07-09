@@ -1,29 +1,45 @@
 # gorder
 
-Event-driven order processing service. Kafka ingestion, PostgreSQL persistence, in-memory LRU cache, REST API. Built with Go.
+Event-driven order processing service. Kafka ingestion, PostgreSQL persistence, in-memory LRU cache, REST API, JWT auth, Prometheus and Grafana metrics, structured logging. Built with Go.
 
 ## Quick start
 
 ```
 cp .env.example .env
-docker compose up --build
+make up
 ```
 
-The service starts at `http://localhost:8080`. The emulator sends test orders from `testdata/` to Kafka on first run.
+The service starts at `http://localhost:8080`. The emulator sends test orders from `testdata/` to Kafka automatically on first run.
 
 ## API
 
+Public endpoints (no auth):
+
 ```
-GET /                    all orders, HTML
-GET /:uid                single order, HTML
-GET /api/orders/:uid     order by UID, JSON
-GET /api/all_orders_uids all UIDs, JSON
-GET /api/server_check    server liveness
-GET /api/db_check        database connectivity
-GET /api/kafka_check     Kafka connectivity
+GET  /health/live         server liveness
+GET  /health/ready        database and Kafka connectivity
+POST /login               authenticate, returns access and refresh tokens
+POST /register            create new user
+POST /refresh             get new access token from refresh token
 ```
 
-Cache-aside: `GetOrderByUIDHandle` and `OrderPageHandle` check the cache first, fall back to PostgreSQL on miss, then populate the cache.
+Protected endpoints (JWT required, `Authorization: Bearer <token>`):
+
+```
+GET  /                    all orders, HTML (user and admin)
+GET  /:uid                single order, HTML (user and admin)
+GET  /api/orders/:uid     order by UID, JSON (admin only)
+GET  /api/all_orders_uids all UIDs, JSON (admin only)
+```
+
+## Authentication
+
+- Passwords hashed with bcrypt
+- Access token: 15 minutes, contains user_id, username, role
+- Refresh token: 7 days, rotation on each use
+- Role-based access: `admin`, `user`
+- Default admin account created by migration: username - admin, password - admin
+- Token generation utility: `make token`
 
 ## Flow
 
@@ -51,26 +67,31 @@ All settings in `.env`. Copy `.env.example` and fill in your values.
 |----------|---------|---------|
 | `HTTP_PORT` | `8080` | listen port |
 | `CACHE_CAPACITY` | `100` | max cached orders before eviction |
-| `DB_HOST` | `db` | PostgreSQL host |
-| `DB_PORT` | `5432` | PostgreSQL port |
-| `DB_USER` | - | PostgreSQL user |
-| `DB_PASSWORD` | - | PostgreSQL password |
-| `DB_NAME` | - | database name |
+| `LOG_FORMAT` | `text` | logging format: text or json |
+| `JWT_SECRET` | - | secret key for JWT signing (required) |
+| `DB_HOST` | - | PostgreSQL host (required) |
+| `DB_PORT` | - | PostgreSQL port (required) |
+| `DB_USER` | - | PostgreSQL user (required) |
+| `DB_PASSWORD` | - | PostgreSQL password (required) |
+| `DB_NAME` | - | database name (required) |
+| `DB_SSL_MODE` | `disable` | PostgreSQL SSL mode |
 | `MIGRATION_DIR` | `migrations` | path to migration files |
-| `KAFKA_BROKERS` | `kafka:9092` | Kafka bootstrap server |
-| `KAFKA_TOPIC` | `wbl0_orders` | topic to consume |
+| `KAFKA_BROKERS` | - | Kafka bootstrap servers (required) |
+| `KAFKA_TOPIC` | - | topic to consume (required) |
 
 ## Docker Compose
 
 | Service | Role |
 |---------|------|
-| `db` | PostgreSQL with `pg_isready` healthcheck |
-| `kafka` | Bitnami Kafka, KRaft mode |
+| `db` | PostgreSQL 18 with `pg_isready` healthcheck |
+| `kafka` | Apache Kafka 4.0, KRaft mode |
 | `kafka-topics-setup` | creates the topic, runs once |
-| `app` | Go binary, waits for healthy db and kafka |
-| `kafka-emulator` | sends test orders, exits when done |
+| `kafka-emulator` | sends test orders from `testdata/`, exits when done |
+| `app` | Go binary, waits for healthy db and kafka, auto-migrates |
+| `prometheus` | scrapes metrics from app on `/metrics` |
+| `grafana` | dashboards, data source preconfigured to Prometheus |
 
-All services on the `orders-network` bridge. Volumes `postgres_data` and `kafka_data` persist across restarts. Reset with `docker compose down -v`.
+All services on the `orders-network` bridge. Prometheus at `:9090`, Grafana at `:3000`. Volumes `postgres_data`, `kafka_data`, `prometheus_data`, and `grafana_data` persist across restarts. Reset with `make down`.
 
 ## Structure
 
@@ -78,24 +99,41 @@ All services on the `orders-network` bridge. Volumes `postgres_data` and `kafka_
 cmd/
   main.go              entry point, wiring, graceful shutdown
   emulator/            test order producer
+  gen-token/           JWT token generation utility
 internal/
-  config/              .env loader
-  database/            pgxpool, CRUD, migrations
-  models/              Order, Delivery, Payment, Item, validation
-  cache/               LRU (doubly-linked list, map, RWMutex)
-  kafka/               consumer, deserialization, validation
-  handlers/            HTTP handlers, cache-aside, Gin
+  app/                 dependency injection, router setup
+  config/              .env loader with validation and defaults
+  storage/             pgxpool, CRUD, transactions, migrations
+  models/              Order, Delivery, Payment, Item, User, request DTOs
+  cache/               custom LRU
+  consumer/            Kafka consumer, deserialization, validation
+  handlers/            HTTP handlers, cache-aside
+  middleware/          JWT auth, role-based access, metrics
+  metrics/             Prometheus counters, gauges, histograms
 migrations/            golang-migrate SQL files
 web/                   Go templates, static CSS
 testdata/              sample order JSON files
 ```
 
-Database migrations run at startup via `golang-migrate`. Orders are stored transactionally across four tables: `orders`, `delivery`, `payment`, `items`. Graceful shutdown via `signal.NotifyContext` for both the HTTP server and Kafka consumer.
+Database migrations run at startup via `golang-migrate`. Orders are stored transactionally across four tables: `orders`, `delivery`, `payment`, `items`. Users stored in a separate table with bcrypt-hashed passwords. Graceful shutdown via `signal.NotifyContext` for both the HTTP server and Kafka consumer.
+
+## Development
+
+```
+make up         # start all services
+make down       # stop and remove containers and volumes
+make test       # run tests with race detection
+make lint       # run golangci-lint
+make build      # build binary
+make token      # generate JWT for testing
+```
+
+CI runs on every push and pull request: lint → test (`-race`) → docker build.
 
 ## Tests
 
 ```
-go test ./internal/...
+make test
 ```
 
-Covers `cache/`, `models/`, and `handlers/`. Handler tests use a mock `StorageInterface`. Cache tests cover set, get, eviction, delete, and `GetAllUIDs`.
+Storage tests use testcontainers. Handler and middleware tests use mocks.

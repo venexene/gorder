@@ -21,7 +21,7 @@ import (
 	"github.com/venexene/gorder/internal/cache"
 	"github.com/venexene/gorder/internal/config"
 	"github.com/venexene/gorder/internal/consumer"
-	"github.com/venexene/gorder/internal/handlers"
+	"github.com/venexene/gorder/internal/handler"
 	"github.com/venexene/gorder/internal/metrics"
 	"github.com/venexene/gorder/internal/middleware"
 	"github.com/venexene/gorder/internal/storage"
@@ -171,14 +171,14 @@ func createRouter(dep *Dependencies) (*gin.Engine, error) {
 	}
 	router.StaticFS("/static", http.FS(sub))
 
-	hd := &handlers.HandlerDependencies{
+	hd := &handler.HandlerDependencies{
 		Storage:  dep.Storage,
 		Consumer: dep.Consumer,
 		Cache:    dep.Cache,
 		Logger:   dep.Logger,
 		Config:   dep.Config,
 	}
-	handler := handlers.NewHandler(hd)
+	handler := handler.NewHandler(hd)
 
 	router.Use(middleware.MetricsMiddleware(dep.Metrics))
 	router.Use(ginprom.Middleware())
