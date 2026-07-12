@@ -30,14 +30,14 @@ func (h *Handler) LoginHandle(c *gin.Context) {
 	if err != nil {
 		h.logger.Error("failed to get user from storage", "error", err)
 		c.JSON(http.StatusUnauthorized, gin.H{
-			"error": fmt.Sprintf("failed to get user from storage: %s", err),
+			"error": "invalid username or password",
 		})
 		return
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(login.Password)); err != nil {
 		h.logger.Error("failed to login", "error", err)
-		c.JSON(http.StatusUnauthorized, gin.H{"error": fmt.Sprintf("failed to login: %s", err)})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid username or password"})
 		return
 	}
 
