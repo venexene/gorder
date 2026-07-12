@@ -34,7 +34,6 @@ func makeValidEnv() string {
 	}, "\n")
 }
 
-// TestLoad_Full checks that all fields are correct.
 func TestLoad_Full(t *testing.T) {
 	dir := t.TempDir()
 	path := writeEnvFile(t, dir, makeValidEnv())
@@ -85,7 +84,6 @@ func TestLoad_Full(t *testing.T) {
 	}
 }
 
-// TestLoad_HTTPPortDefault checks default HTTP_PORT value.
 func TestLoad_Defaults(t *testing.T) {
 	dir := t.TempDir()
 	path := writeEnvFile(t, dir, makeValidEnv()+
@@ -112,7 +110,6 @@ func TestLoad_Defaults(t *testing.T) {
 	}
 }
 
-// TestLoad_HTTPPortValidation checks HTTP_PORT validation.
 func TestLoad_HTTPPortValidation(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -141,7 +138,6 @@ func TestLoad_HTTPPortValidation(t *testing.T) {
 	}
 }
 
-// TestLoad_DBPortValidation checks DB_PORT validation.
 func TestLoad_DBPortValidation(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -170,7 +166,6 @@ func TestLoad_DBPortValidation(t *testing.T) {
 	}
 }
 
-// TestLoad_CacheCapacityValidation checks cache capacity validation.
 func TestLoad_CacheCapacityValidation(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -212,7 +207,6 @@ func TestLoad_CacheCapacityValidation(t *testing.T) {
 	}
 }
 
-// TestLoad_LogFormatValidation checks that invalid log format values are rejected.
 func TestLoad_LogFormatValidation(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -247,7 +241,6 @@ func TestLoad_LogFormatValidation(t *testing.T) {
 	}
 }
 
-// TestLoad_RequiredFields checks validation of required fields.
 func TestLoad_RequiredFields(t *testing.T) {
 	tests := []struct {
 		name    string

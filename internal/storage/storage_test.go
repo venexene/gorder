@@ -123,7 +123,6 @@ func setupTest(t *testing.T) {
 	testPool.Exec(ctx, "DELETE FROM orders")
 }
 
-// TestAddOrder_InsertAndRetrieve inserts an order, fetches it and verifies fields.
 func TestAddOrder_InsertAndRetrieve(t *testing.T) {
 	setupTest(t)
 	ctx := context.Background()
@@ -257,7 +256,6 @@ func TestAddOrder_InsertAndRetrieve(t *testing.T) {
 	}
 }
 
-// TestAddOrderIfNotExists_Duplicate inserts verifies fall on adding duplicate.
 func TestAddOrderIfNotExists_Duplicate(t *testing.T) {
 	setupTest(t)
 	ctx := context.Background()
@@ -275,7 +273,6 @@ func TestAddOrderIfNotExists_Duplicate(t *testing.T) {
 	}
 }
 
-// TestGetOrderByUID_NotFound verifies fall on querying a non-existent.
 func TestGetOrderByUID_NotFound(t *testing.T) {
 	setupTest(t)
 	ctx := context.Background()
@@ -289,7 +286,6 @@ func TestGetOrderByUID_NotFound(t *testing.T) {
 	}
 }
 
-// TestOrderExists verifies OrderExists works correct.
 func TestOrderExists(t *testing.T) {
 	setupTest(t)
 	ctx := context.Background()
@@ -317,7 +313,6 @@ func TestOrderExists(t *testing.T) {
 	}
 }
 
-// TestGetAllOrdersUID verifies that all inserted UIDs are returned.
 func TestGetAllOrdersUID(t *testing.T) {
 	setupTest(t)
 	ctx := context.Background()
@@ -343,7 +338,6 @@ func TestGetAllOrdersUID(t *testing.T) {
 	}
 }
 
-// TestGetRecentOrdersUID verifies correct number of recent IDs and newest comes first.
 func TestGetRecentOrdersUID(t *testing.T) {
 	setupTest(t)
 	ctx := context.Background()
@@ -373,7 +367,6 @@ func TestGetRecentOrdersUID(t *testing.T) {
 	}
 }
 
-// TestAddOrder_MultipleItems verifies that an order with several items works correct.
 func TestAddOrder_MultipleItems(t *testing.T) {
 	setupTest(t)
 	ctx := context.Background()
@@ -406,5 +399,91 @@ func TestAddOrder_MultipleItems(t *testing.T) {
 	}
 	if fetched.Items[2].Name != "Item C" {
 		t.Errorf("item 2 name: got %s", fetched.Items[2].Name)
+	}
+}
+
+func makeTestUser(username string) *models.User {
+	return &models.User{
+		Username:     username,
+		PasswordHash: "$2a$10$test_hash_for_testing_purposes",
+		Role:         "user",
+	}
+}
+
+func TestCreateUser_Success(t *testing.T) {
+	setupTest(t)
+	ctx := context.Background()
+
+	user := makeTestUser("alice")
+
+	if err := testStorage.CreateUser(ctx, user); err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+
+	fetched, err := testStorage.GetUser(ctx, "alice")
+	if err != nil {
+		t.Fatalf("GetUser failed: %v", err)
+	}
+	if fetched.Username != "alice" {
+		t.Errorf("expected username 'alice', got %s", fetched.Username)
+	}
+	if fetched.PasswordHash != user.PasswordHash {
+		t.Errorf("expected password_hash to match")
+	}
+	if fetched.Role != "user" {
+		t.Errorf("expected role 'user', got %s", fetched.Role)
+	}
+	if fetched.ID == 0 {
+		t.Error("expected non-zero ID after insert")
+	}
+}
+
+func TestCreateUser_Duplicate(t *testing.T) {
+	setupTest(t)
+	ctx := context.Background()
+
+	user := makeTestUser("bob")
+
+	if err := testStorage.CreateUser(ctx, user); err != nil {
+		t.Fatalf("first CreateUser failed: %v", err)
+	}
+
+	err := testStorage.CreateUser(ctx, user)
+	if err == nil {
+		t.Fatal("expected error on duplicate username, got nil")
+	}
+}
+
+func TestGetUser_NotFound(t *testing.T) {
+	setupTest(t)
+	ctx := context.Background()
+
+	_, err := testStorage.GetUser(ctx, "nonexistent")
+	if err == nil {
+		t.Fatal("expected error for non-existent user, got nil")
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		t.Errorf("expected pgx.ErrNoRows, got: %v", err)
+	}
+}
+
+func TestGetUser_Found(t *testing.T) {
+	setupTest(t)
+	ctx := context.Background()
+
+	user := makeTestUser("charlie")
+	if err := testStorage.CreateUser(ctx, user); err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+
+	fetched, err := testStorage.GetUser(ctx, "charlie")
+	if err != nil {
+		t.Fatalf("GetUser failed: %v", err)
+	}
+	if fetched.Username != "charlie" {
+		t.Errorf("expected username 'charlie', got %s", fetched.Username)
+	}
+	if fetched.Role != "user" {
+		t.Errorf("expected role 'user', got %s", fetched.Role)
 	}
 }

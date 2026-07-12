@@ -7,7 +7,6 @@ import (
 	"github.com/venexene/gorder/internal/models"
 )
 
-// TestCacheSetGet verifies basic Set/Get operations and non-existent key lookup.
 func TestCacheSetGet(t *testing.T) {
 	logger := slog.New(slog.DiscardHandler)
 	cache := NewCache(2, logger, nil)
@@ -26,7 +25,6 @@ func TestCacheSetGet(t *testing.T) {
 	}
 }
 
-// TestCacheEviction verifies that the least recently used item is evicted when capacity is exceeded.
 func TestCacheEviction(t *testing.T) {
 	logger := slog.New(slog.DiscardHandler)
 	cache := NewCache(2, logger, nil)
@@ -62,7 +60,6 @@ func TestCacheEviction(t *testing.T) {
 	}
 }
 
-// TestCacheDelete verifies that an order is properly removed from the cache.
 func TestCacheDelete(t *testing.T) {
 	logger := slog.New(slog.DiscardHandler)
 	cache := NewCache(2, logger, nil)

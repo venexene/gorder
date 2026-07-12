@@ -30,7 +30,6 @@ func setupJWTTestRouter() *gin.Engine {
 	return router
 }
 
-// TestMetricsMiddleware_ChainWorks verifies the middleware does not break the request chain.
 func TestMetricsMiddleware_ChainWorks(t *testing.T) {
 	m := metrics.NewMetrics()
 	router := gin.New()
@@ -48,7 +47,6 @@ func TestMetricsMiddleware_ChainWorks(t *testing.T) {
 	}
 }
 
-// TestJWTAuth_ValidToken verifies 200 with a correctly signed token.
 func TestJWTAuth_ValidToken(t *testing.T) {
 	router := setupJWTTestRouter()
 
@@ -69,7 +67,6 @@ func TestJWTAuth_ValidToken(t *testing.T) {
 	}
 }
 
-// TestJWTAuth_MissingHeader verifies 401 when Authorization header is absent.
 func TestJWTAuth_MissingHeader(t *testing.T) {
 	router := setupJWTTestRouter()
 
@@ -82,7 +79,6 @@ func TestJWTAuth_MissingHeader(t *testing.T) {
 	}
 }
 
-// TestJWTAuth_InvalidSignature verifies 401 with a token signed by a different secret.
 func TestJWTAuth_InvalidSignature(t *testing.T) {
 	router := setupJWTTestRouter()
 
@@ -100,7 +96,6 @@ func TestJWTAuth_InvalidSignature(t *testing.T) {
 	}
 }
 
-// TestJWTAuth_ExpiredToken verifies 401 with an expired token.
 func TestJWTAuth_ExpiredToken(t *testing.T) {
 	router := setupJWTTestRouter()
 
@@ -119,7 +114,73 @@ func TestJWTAuth_ExpiredToken(t *testing.T) {
 	}
 }
 
-// TestJWTAuth_NoBearerPrefix verifies 401 when token lacks Bearer prefix.
+func setupRequireRoleRouter(roles ...string) *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		c.Set("role", "user")
+		c.Next()
+	})
+	router.Use(RequireRole(roles...))
+	router.GET("/test", func(c *gin.Context) {
+		c.String(http.StatusOK, "ok")
+	})
+	return router
+}
+
+func TestRequireRole_Allowed(t *testing.T) {
+	router := setupRequireRoleRouter("user")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/test", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 for allowed role, got %d", w.Code)
+	}
+}
+
+func TestRequireRole_MultipleRoles(t *testing.T) {
+	router := setupRequireRoleRouter("admin", "user", "moderator")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/test", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 when role in allowed list, got %d", w.Code)
+	}
+}
+
+func TestRequireRole_Forbidden(t *testing.T) {
+	router := setupRequireRoleRouter("admin")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/test", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("expected 403 for disallowed role, got %d", w.Code)
+	}
+}
+
+func TestRequireRole_NoRoleInContext(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.Use(RequireRole("admin"))
+	router.GET("/test", func(c *gin.Context) {
+		c.String(http.StatusOK, "ok")
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/test", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 when role not in context, got %d", w.Code)
+	}
+}
+
 func TestJWTAuth_NoBearerPrefix(t *testing.T) {
 	router := setupJWTTestRouter()
 

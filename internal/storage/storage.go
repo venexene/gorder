@@ -369,6 +369,7 @@ func (s *Storage) GetRecentOrdersUID(ctx context.Context, limit int) ([]string, 
 	return uids, nil
 }
 
+// CreateUser inserts a new user into the database.
 func (s *Storage) CreateUser(ctx context.Context, user *models.User) error {
 	query := `
         INSERT INTO users (
@@ -388,6 +389,7 @@ func (s *Storage) CreateUser(ctx context.Context, user *models.User) error {
 	return nil
 }
 
+// GetUser retrieves a user by username from the database.
 func (s *Storage) GetUser(ctx context.Context, username string) (*models.User, error) {
 	query := `
 		SELECT id, username, password_hash, role FROM users WHERE username = $1

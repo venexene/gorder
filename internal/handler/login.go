@@ -13,6 +13,7 @@ import (
 	"github.com/venexene/gorder/internal/models"
 )
 
+// LoginHandle authenticates a user by username and password, returning access and refresh tokens.
 func (h *Handler) LoginHandle(c *gin.Context) {
 	var login models.LoginRequest
 
@@ -59,6 +60,7 @@ func (h *Handler) LoginHandle(c *gin.Context) {
 	})
 }
 
+// RegisterHandle creates a new user with a bcrypt-hashed password and default "user" role.
 func (h *Handler) RegisterHandle(c *gin.Context) {
 	var req models.LoginRequest
 
@@ -91,6 +93,7 @@ func (h *Handler) RegisterHandle(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"status": "created"})
 }
 
+// createToken signs a JWT with the given claims using HMAC-SHA256.
 func createToken(userID, username, role, tokenType string, ttl time.Duration, secret []byte) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id":  userID,
@@ -105,6 +108,7 @@ func createToken(userID, username, role, tokenType string, ttl time.Duration, se
 	return token.SignedString(secret)
 }
 
+// RefreshHandle validates a refresh token and returns a new pair of access and refresh tokens.
 func (h *Handler) RefreshHandle(c *gin.Context) {
 	var req models.RefreshRequest
 

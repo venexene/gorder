@@ -7,21 +7,39 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/venexene/gorder/internal/cache"
+	"github.com/venexene/gorder/internal/config"
 	"github.com/venexene/gorder/internal/models"
 )
+
+const testJWTSecret = "test-secret-for-jwt"
 
 func setTestUser(c *gin.Context, userID string) {
 	c.Set("user_id", userID)
 }
 
 type mockStorage struct {
-	healthError error
+	healthError   error
+	users         map[string]*models.User
+	createUserErr error
+}
+
+func newMockStorage() *mockStorage {
+	hash, _ := bcrypt.GenerateFromPassword([]byte("password"), bcrypt.DefaultCost)
+	return &mockStorage{
+		users: map[string]*models.User{
+			"testuser": {ID: 1, Username: "testuser", PasswordHash: string(hash), Role: "user"},
+			"admin":    {ID: 2, Username: "admin", PasswordHash: string(hash), Role: "admin"},
+		},
+	}
 }
 
 func (m *mockStorage) CheckHealthDB(ctx context.Context) error {
@@ -56,11 +74,22 @@ func (m *mockStorage) AddOrderIfNotExists(ctx context.Context, order *models.Ord
 }
 
 func (m *mockStorage) CreateUser(ctx context.Context, user *models.User) error {
+	if m.createUserErr != nil {
+		return m.createUserErr
+	}
+	if _, exists := m.users[user.Username]; exists {
+		return fmt.Errorf("duplicate user: %s", user.Username)
+	}
+	m.users[user.Username] = user
 	return nil
 }
 
 func (m *mockStorage) GetUser(ctx context.Context, username string) (*models.User, error) {
-	return nil, nil
+	user, exists := m.users[username]
+	if !exists {
+		return nil, fmt.Errorf("failed to find user with username %s: %w", username, pgx.ErrNoRows)
+	}
+	return user, nil
 }
 
 type mockConsumer struct {
@@ -74,16 +103,15 @@ func (m *mockConsumer) CheckHealth(ctx context.Context) error {
 func newTestHandler() *Handler {
 	logger := slog.New(slog.DiscardHandler)
 	hd := &HandlerDependencies{
-		Storage:  &mockStorage{},
+		Storage:  newMockStorage(),
 		Consumer: &mockConsumer{},
 		Cache:    cache.NewCache(10, logger, nil),
 		Logger:   logger,
-		Config:   nil,
+		Config:   &config.Config{JWTSecret: testJWTSecret},
 	}
 	return NewHandler(hd)
 }
 
-// TestLiveCheckHandle verifies 200 returns by liveness check.
 func TestLiveCheckHandle(t *testing.T) {
 	handler := newTestHandler()
 	w := httptest.NewRecorder()
@@ -97,71 +125,62 @@ func TestLiveCheckHandle(t *testing.T) {
 	}
 }
 
-// TestReadyCheckHandle_Up verifies 200 UP when both DB and Kafka are healthy.
-func TestReadyCheckHandle_Up(t *testing.T) {
-	handler := newTestHandler()
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", "/health", nil)
-
-	handler.ReadyCheckHandle(c)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", w.Code)
+func TestReadyCheckHandle(t *testing.T) {
+	tests := []struct {
+		name       string
+		dbError    error
+		kafkaError error
+		wantCode   int
+		wantStatus string
+	}{
+		{
+			name:       "all healthy",
+			dbError:    nil,
+			kafkaError: nil,
+			wantCode:   http.StatusOK,
+			wantStatus: "UP",
+		},
+		{
+			name:       "kafka down",
+			dbError:    nil,
+			kafkaError: fmt.Errorf("kafka down"),
+			wantCode:   http.StatusServiceUnavailable,
+			wantStatus: "DOWN",
+		},
+		{
+			name:       "db down",
+			dbError:    fmt.Errorf("db down"),
+			kafkaError: nil,
+			wantCode:   http.StatusServiceUnavailable,
+			wantStatus: "DOWN",
+		},
 	}
 
-	var body map[string]string
-	json.NewDecoder(w.Body).Decode(&body)
-	if body["status"] != "UP" {
-		t.Errorf("expected status UP, got %s", body["status"])
-	}
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler := newTestHandler()
+			handler.consumer = &mockConsumer{healthError: tt.kafkaError}
+			handler.storage = &mockStorage{healthError: tt.dbError}
 
-// TestReadyCheckHandle_KafkaDown verifies 503 DOWN when Kafka is unhealthy.
-func TestReadyCheckHandle_KafkaDown(t *testing.T) {
-	handler := newTestHandler()
-	handler.consumer = &mockConsumer{healthError: fmt.Errorf("kafka down")}
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest("GET", "/health", nil)
 
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", "/health", nil)
+			handler.ReadyCheckHandle(c)
 
-	handler.ReadyCheckHandle(c)
+			if w.Code != tt.wantCode {
+				t.Errorf("expected %d, got %d", tt.wantCode, w.Code)
+			}
 
-	if w.Code != http.StatusServiceUnavailable {
-		t.Errorf("expected 503, got %d", w.Code)
-	}
-
-	var body map[string]string
-	json.NewDecoder(w.Body).Decode(&body)
-	if body["status"] != "DOWN" {
-		t.Errorf("expected status DOWN, got %s", body["status"])
-	}
-}
-
-// TestReadyCheckHandle_DBDown verifies 503 DOWN when database is unhealthy.
-func TestReadyCheckHandle_DBDown(t *testing.T) {
-	handler := newTestHandler()
-	handler.storage = &mockStorage{healthError: fmt.Errorf("db down")}
-
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", "/health", nil)
-
-	handler.ReadyCheckHandle(c)
-
-	if w.Code != http.StatusServiceUnavailable {
-		t.Errorf("expected 503, got %d", w.Code)
-	}
-
-	var body map[string]string
-	json.NewDecoder(w.Body).Decode(&body)
-	if body["status"] != "DOWN" {
-		t.Errorf("expected status DOWN, got %s", body["status"])
+			var body map[string]string
+			json.NewDecoder(w.Body).Decode(&body)
+			if body["status"] != tt.wantStatus {
+				t.Errorf("expected status %s, got %s", tt.wantStatus, body["status"])
+			}
+		})
 	}
 }
 
-// TestGetOrderByUIDHandle_NoAuth verifies 401 when user_id is missing from context.
 func TestGetOrderByUIDHandle_NoAuth(t *testing.T) {
 	handler := newTestHandler()
 	w := httptest.NewRecorder()
@@ -176,7 +195,6 @@ func TestGetOrderByUIDHandle_NoAuth(t *testing.T) {
 	}
 }
 
-// TestGetAllOrdersUIDHandle_NoAuth verifies 401 when user_id is missing.
 func TestGetAllOrdersUIDHandle_NoAuth(t *testing.T) {
 	handler := newTestHandler()
 	w := httptest.NewRecorder()
@@ -190,7 +208,6 @@ func TestGetAllOrdersUIDHandle_NoAuth(t *testing.T) {
 	}
 }
 
-// TestGetOrderByUIDHandle_Existing checks known UID.
 func TestGetOrderByUIDHandle_Existing(t *testing.T) {
 	handler := newTestHandler()
 	w := httptest.NewRecorder()
@@ -214,7 +231,6 @@ func TestGetOrderByUIDHandle_Existing(t *testing.T) {
 	}
 }
 
-// TestGetOrderByUIDHandle_Missing checks unknown UID.
 func TestGetOrderByUIDHandle_Missing(t *testing.T) {
 	handler := newTestHandler()
 	w := httptest.NewRecorder()
@@ -230,7 +246,6 @@ func TestGetOrderByUIDHandle_Missing(t *testing.T) {
 	}
 }
 
-// TestGetOrderByUIDHandle_EmptyUID checks empty UID.
 func TestGetOrderByUIDHandle_EmptyUID(t *testing.T) {
 	handler := newTestHandler()
 	w := httptest.NewRecorder()
@@ -246,7 +261,6 @@ func TestGetOrderByUIDHandle_EmptyUID(t *testing.T) {
 	}
 }
 
-// TestGetOrderByUIDHandle_CacheHit checks that a cached order  works without db query.
 func TestGetOrderByUIDHandle_CacheHit(t *testing.T) {
 	handler := newTestHandler()
 	testOrder := &models.Order{OrderUID: "cached-uid", TrackNumber: "CACHED"}
@@ -270,7 +284,6 @@ func TestGetOrderByUIDHandle_CacheHit(t *testing.T) {
 	}
 }
 
-// TestGetAllOrdersUIDHandle checks UID list endpoint.
 func TestGetAllOrdersUIDHandle(t *testing.T) {
 	handler := newTestHandler()
 	w := httptest.NewRecorder()
@@ -288,4 +301,174 @@ func TestGetAllOrdersUIDHandle(t *testing.T) {
 	if len(body["order_uids"]) != 2 {
 		t.Errorf("expected 2 UIDs, got %d", len(body["order_uids"]))
 	}
+}
+
+func TestLoginHandle(t *testing.T) {
+	tests := []struct {
+		name     string
+		body     string
+		wantCode int
+		wantKey  string
+	}{
+		{
+			name:     "successful login",
+			body:     `{"username":"testuser","password":"password"}`,
+			wantCode: http.StatusOK,
+			wantKey:  "access_token",
+		},
+		{
+			name:     "wrong password",
+			body:     `{"username":"testuser","password":"wrongpass"}`,
+			wantCode: http.StatusUnauthorized,
+			wantKey:  "",
+		},
+		{
+			name:     "non-existent user",
+			body:     `{"username":"nobody","password":"password"}`,
+			wantCode: http.StatusUnauthorized,
+			wantKey:  "",
+		},
+		{
+			name:     "invalid json",
+			body:     `{bad`,
+			wantCode: http.StatusBadRequest,
+			wantKey:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler := newTestHandler()
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest("POST", "/login",
+				strings.NewReader(tt.body))
+			c.Request.Header.Set("Content-Type", "application/json")
+
+			handler.LoginHandle(c)
+
+			if w.Code != tt.wantCode {
+				t.Errorf("expected %d, got %d", tt.wantCode, w.Code)
+			}
+
+			if tt.wantKey != "" {
+				var body map[string]string
+				json.NewDecoder(w.Body).Decode(&body)
+				if _, ok := body[tt.wantKey]; !ok {
+					t.Errorf("expected key %q in response", tt.wantKey)
+				}
+			}
+		})
+	}
+}
+
+func TestRegisterHandle(t *testing.T) {
+	tests := []struct {
+		name     string
+		body     string
+		wantCode int
+	}{
+		{
+			name:     "successful registration",
+			body:     `{"username":"newuser","password":"secret"}`,
+			wantCode: http.StatusCreated,
+		},
+		{
+			name:     "duplicate username",
+			body:     `{"username":"testuser","password":"secret"}`,
+			wantCode: http.StatusConflict,
+		},
+		{
+			name:     "invalid json",
+			body:     `{bad`,
+			wantCode: http.StatusBadRequest,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler := newTestHandler()
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest("POST", "/register",
+				strings.NewReader(tt.body))
+			c.Request.Header.Set("Content-Type", "application/json")
+
+			handler.RegisterHandle(c)
+
+			if w.Code != tt.wantCode {
+				t.Errorf("expected %d, got %d", tt.wantCode, w.Code)
+			}
+
+			if tt.wantCode == http.StatusCreated {
+				var body map[string]string
+				json.NewDecoder(w.Body).Decode(&body)
+				if body["status"] != "created" {
+					t.Errorf("expected status 'created', got %s", body["status"])
+				}
+			}
+		})
+	}
+}
+
+func TestRefreshHandle(t *testing.T) {
+	tests := []struct {
+		name        string
+		refreshJSON string
+		wantCode    int
+	}{
+		{
+			name:        "valid refresh",
+			refreshJSON: `{"refresh_token":"` + makeRefreshToken("testuser", "user") + `"}`,
+			wantCode:    http.StatusOK,
+		},
+		{
+			name:        "expired refresh",
+			refreshJSON: `{"refresh_token":"` + makeExpiredRefreshToken("testuser", "user") + `"}`,
+			wantCode:    http.StatusUnauthorized,
+		},
+		{
+			name:        "invalid json",
+			refreshJSON: `{bad`,
+			wantCode:    http.StatusBadRequest,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler := newTestHandler()
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest("POST", "/refresh",
+				strings.NewReader(tt.refreshJSON))
+			c.Request.Header.Set("Content-Type", "application/json")
+
+			handler.RefreshHandle(c)
+
+			if w.Code != tt.wantCode {
+				t.Errorf("expected %d, got %d", tt.wantCode, w.Code)
+			}
+
+			if tt.wantCode == http.StatusOK {
+				var body map[string]string
+				json.NewDecoder(w.Body).Decode(&body)
+				if body["access_token"] == "" {
+					t.Error("expected non-empty access_token")
+				}
+				if body["refresh_token"] == "" {
+					t.Error("expected non-empty refresh_token")
+				}
+			}
+		})
+	}
+}
+
+func makeRefreshToken(username, role string) string {
+	token, _ := createToken("42", username, role, "refresh", 7*24*time.Hour, []byte(testJWTSecret))
+	return token
+}
+
+func makeExpiredRefreshToken(username, role string) string {
+	token, _ := createToken("42", username, role, "refresh", -1*time.Hour, []byte(testJWTSecret))
+	return token
 }

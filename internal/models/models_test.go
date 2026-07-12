@@ -6,7 +6,6 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-// TestLoadOrderFromFile tests loading valid, missing, and malformed JSON order files.
 func TestLoadOrderFromFile(t *testing.T) {
 	if _, err := LoadOrderFromFile("../../testdata/order1.json"); err != nil {
 		t.Errorf("failed to load order from file: %v", err)
@@ -22,7 +21,6 @@ func TestLoadOrderFromFile(t *testing.T) {
 
 }
 
-// TestOrderValidation verifies that the validator catches invalid orders and accepts valid ones.
 func TestOrderValidation(t *testing.T) {
 	val := validator.New()
 

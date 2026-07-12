@@ -1,5 +1,11 @@
 # gorder
 
+[![Go Version](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go)](https://go.dev/)
+[![CI](https://github.com/venexene/gorder/actions/workflows/ci.yml/badge.svg)](https://github.com/venexene/gorder/actions)
+[![Go Report Card](https://goreportcard.com/badge/github.com/venexene/gorder)](https://goreportcard.com/report/github.com/venexene/gorder)
+[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker)](https://www.docker.com/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 Event-driven order processing service. Kafka ingestion, PostgreSQL persistence, in-memory LRU cache, REST API, JWT auth, Prometheus and Grafana metrics, structured logging. Built with Go.
 
 ## Quick start
@@ -128,7 +134,7 @@ make build      # build binary
 make token      # generate JWT for testing
 ```
 
-CI runs on every push and pull request: lint → test (`-race`) → docker build.
+CI runs on every push and pull request: lint → test → docker build.
 
 ## Tests
 

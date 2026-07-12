@@ -130,7 +130,6 @@ func validOrderJSON() []byte {
 	return data
 }
 
-// TestProcessMessage_Valid checks that valid JSON is parsed into an Order.
 func TestProcessMessage_Valid(t *testing.T) {
 	logger := slog.New(slog.DiscardHandler)
 	c := NewConsumer(nil, nil, nil, logger, nil, "")
@@ -148,7 +147,6 @@ func TestProcessMessage_Valid(t *testing.T) {
 	}
 }
 
-// TestProcessMessage_InvalidJSON checks that broken JSON returns an error.
 func TestProcessMessage_InvalidJSON(t *testing.T) {
 	logger := slog.New(slog.DiscardHandler)
 	c := NewConsumer(nil, nil, nil, logger, nil, "")
@@ -160,7 +158,6 @@ func TestProcessMessage_InvalidJSON(t *testing.T) {
 	}
 }
 
-// TestProcessMessage_ValidationFailed checks that an order missing required fields fails validation.
 func TestProcessMessage_ValidationFailed(t *testing.T) {
 	logger := slog.New(slog.DiscardHandler)
 	c := NewConsumer(nil, nil, nil, logger, nil, "")
@@ -181,7 +178,6 @@ func TestProcessMessage_ValidationFailed(t *testing.T) {
 	}
 }
 
-// TestConsume_Successful checks that a valid message is stored and cached.
 func TestConsume_Successful(t *testing.T) {
 	reader := newMockReader()
 	reader.AddMessage(kafka.Message{Value: validOrderJSON()})
@@ -207,7 +203,6 @@ func TestConsume_Successful(t *testing.T) {
 	}
 }
 
-// TestConsume_SkipInvalid checks that an invalid message is skipped and a valid one is processed.
 func TestConsume_SkipInvalid(t *testing.T) {
 	reader := newMockReader()
 	reader.AddMessage(kafka.Message{Value: []byte("not json")})
@@ -226,7 +221,6 @@ func TestConsume_SkipInvalid(t *testing.T) {
 	}
 }
 
-// TestConsume_Duplicate checks that a duplicate order is not cached.
 func TestConsume_Duplicate(t *testing.T) {
 	reader := newMockReader()
 	reader.AddMessage(kafka.Message{Value: validOrderJSON()})
@@ -246,7 +240,6 @@ func TestConsume_Duplicate(t *testing.T) {
 	}
 }
 
-// TestConsume_GracefulShutdown checks that the loop ends when the mock returns Canceled.
 func TestConsume_GracefulShutdown(t *testing.T) {
 	reader := newMockReader()
 	reader.AddMessage(kafka.Message{Value: validOrderJSON()})

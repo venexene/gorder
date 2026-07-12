@@ -71,6 +71,7 @@ type Item struct {
 	Status      uint   `json:"status" validate:"gte=0,max=999"`
 }
 
+// User represents a registered user stored in the database.
 type User struct {
 	ID           int    `json:"-"`
 	Username     string `json:"-"`
@@ -78,11 +79,13 @@ type User struct {
 	Role         string `json:"-"`
 }
 
+// LoginRequest is the JSON body for POST /login and POST /register.
 type LoginRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
 
+// RefreshRequest is the JSON body for POST /refresh.
 type RefreshRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }

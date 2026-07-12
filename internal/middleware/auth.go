@@ -8,6 +8,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+// JWTAuth validates a JWT from the Authorization header and sets user claims into the Gin context.
 func JWTAuth(secret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		auth := c.GetHeader("Authorization")
@@ -54,6 +55,7 @@ func JWTAuth(secret string) gin.HandlerFunc {
 	}
 }
 
+// RequireRole restricts access to users whose role matches one of the given roles.
 func RequireRole(roles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		r, exists := c.Get("role")
