@@ -55,10 +55,19 @@ func (h *Handler) LoginHandle(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"access_token":  access,
-		"refresh_token": refresh,
-	})
+	c.SetCookie("access_token", access, 900, "/", "", false, true)
+	c.SetCookie("refresh_token", refresh, 604800, "/", "", false, true)
+	c.JSON(http.StatusOK, gin.H{"status": "logged in"})
+}
+
+func (h *Handler) LoginPageHandle(c *gin.Context) {
+	c.HTML(http.StatusOK, "login.html", nil)
+}
+
+func (h *Handler) LogoutHandle(c *gin.Context) {
+	c.SetCookie("access_token", "", -1, "/", "", false, true)
+	c.SetCookie("refresh_token", "", -1, "/", "", false, true)
+	c.JSON(http.StatusOK, gin.H{"status": "logged out"})
 }
 
 // RegisterHandle creates a new user with a bcrypt-hashed password and default "user" role.
@@ -94,7 +103,6 @@ func (h *Handler) RegisterHandle(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"status": "created"})
 }
 
-// createToken signs a JWT with the given claims using HMAC-SHA256.
 func createToken(userID, username, role, tokenType string, ttl time.Duration, secret []byte) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id":  userID,
@@ -186,8 +194,11 @@ func (h *Handler) RefreshHandle(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"access_token":  newAccess,
-		"refresh_token": newRefresh,
-	})
+	c.SetCookie("access_token", newAccess, 900, "/", "", false, true)
+	c.SetCookie("refresh_token", newRefresh, 604800, "/", "", false, true)
+	c.JSON(http.StatusOK, gin.H{"status": "logged in"})
+}
+
+func (h *Handler) RegisterPageHandle(c *gin.Context) {
+	c.HTML(http.StatusOK, "login.html", nil)
 }

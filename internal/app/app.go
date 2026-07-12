@@ -196,8 +196,18 @@ func createRouter(dep *Dependencies) (*gin.Engine, error) {
 
 		public.GET("/metrics", gin.WrapH(ginprom.GetMetricHandler()))
 
+		public.GET("/login", func(c *gin.Context) {
+			handler.LoginPageHandle(c)
+		})
+
 		public.POST("/login", func(c *gin.Context) {
 			handler.LoginHandle(c)
+		})
+
+		public.POST("/logout", handler.LogoutHandle)
+
+		public.GET("/register", func(c *gin.Context) {
+			handler.RegisterPageHandle(c)
 		})
 
 		public.POST("/register", func(c *gin.Context) {

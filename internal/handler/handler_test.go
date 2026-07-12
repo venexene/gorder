@@ -308,31 +308,26 @@ func TestLoginHandle(t *testing.T) {
 		name     string
 		body     string
 		wantCode int
-		wantKey  string
 	}{
 		{
 			name:     "successful login",
 			body:     `{"username":"testuser","password":"password"}`,
 			wantCode: http.StatusOK,
-			wantKey:  "access_token",
 		},
 		{
 			name:     "wrong password",
 			body:     `{"username":"testuser","password":"wrongpass"}`,
 			wantCode: http.StatusUnauthorized,
-			wantKey:  "",
 		},
 		{
 			name:     "non-existent user",
 			body:     `{"username":"nobody","password":"password"}`,
 			wantCode: http.StatusUnauthorized,
-			wantKey:  "",
 		},
 		{
 			name:     "invalid json",
 			body:     `{bad`,
 			wantCode: http.StatusBadRequest,
-			wantKey:  "",
 		},
 	}
 
@@ -351,15 +346,54 @@ func TestLoginHandle(t *testing.T) {
 				t.Errorf("expected %d, got %d", tt.wantCode, w.Code)
 			}
 
-			if tt.wantKey != "" {
+			if tt.wantCode == http.StatusOK {
 				var body map[string]string
 				json.NewDecoder(w.Body).Decode(&body)
-				if _, ok := body[tt.wantKey]; !ok {
-					t.Errorf("expected key %q in response", tt.wantKey)
+				if body["status"] != "logged in" {
+					t.Errorf("expected status 'logged in', got %s", body["status"])
+				}
+
+				cookies := w.Result().Cookies()
+				if !hasCookie(cookies, "access_token") {
+					t.Error("expected access_token cookie")
+				}
+				if !hasCookie(cookies, "refresh_token") {
+					t.Error("expected refresh_token cookie")
 				}
 			}
 		})
 	}
+}
+
+func TestLogoutHandle(t *testing.T) {
+	handler := newTestHandler()
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("POST", "/logout", nil)
+
+	handler.LogoutHandle(c)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+
+	cookies := w.Result().Cookies()
+	for _, ck := range cookies {
+		if ck.Name == "access_token" || ck.Name == "refresh_token" {
+			if ck.MaxAge != -1 {
+				t.Errorf("expected %s cookie to be cleared (MaxAge=-1)", ck.Name)
+			}
+		}
+	}
+}
+
+func hasCookie(cookies []*http.Cookie, name string) bool {
+	for _, c := range cookies {
+		if c.Name == name && c.Value != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func TestRegisterHandle(t *testing.T) {
@@ -452,11 +486,16 @@ func TestRefreshHandle(t *testing.T) {
 			if tt.wantCode == http.StatusOK {
 				var body map[string]string
 				json.NewDecoder(w.Body).Decode(&body)
-				if body["access_token"] == "" {
-					t.Error("expected non-empty access_token")
+				if body["status"] != "logged in" {
+					t.Errorf("expected status 'logged in', got %s", body["status"])
 				}
-				if body["refresh_token"] == "" {
-					t.Error("expected non-empty refresh_token")
+
+				cookies := w.Result().Cookies()
+				if !hasCookie(cookies, "access_token") {
+					t.Error("expected access_token cookie")
+				}
+				if !hasCookie(cookies, "refresh_token") {
+					t.Error("expected refresh_token cookie")
 				}
 			}
 		})

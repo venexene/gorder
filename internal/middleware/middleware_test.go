@@ -114,6 +114,26 @@ func TestJWTAuth_ExpiredToken(t *testing.T) {
 	}
 }
 
+func TestJWTAuth_CookieFallback(t *testing.T) {
+	router := setupJWTTestRouter()
+
+	token := genTestToken(jwt.MapClaims{
+		"user_id":  "test-user",
+		"username": "tester",
+		"role":     "admin",
+		"exp":      time.Now().Add(time.Hour).Unix(),
+	}, testSecret)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/test", nil)
+	req.AddCookie(&http.Cookie{Name: "access_token", Value: token})
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 with cookie auth, got %d", w.Code)
+	}
+}
+
 func setupRequireRoleRouter(roles ...string) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
