@@ -1,3 +1,4 @@
+// Package cache implements a thread-safe in-memory LRU cache for orders.
 package cache
 
 import (
@@ -8,7 +9,7 @@ import (
 
 	"github.com/venexene/gorder/internal/metrics"
 	"github.com/venexene/gorder/internal/models"
-	"github.com/venexene/gorder/internal/storage"
+	"github.com/venexene/gorder/internal/repository"
 )
 
 type cacheNode struct {
@@ -137,7 +138,7 @@ func (c *Cache) Size() int {
 }
 
 // Populate preloads the cache with the most recent orders from the database.
-func (c *Cache) Populate(ctx context.Context, st *storage.Storage) error {
+func (c *Cache) Populate(ctx context.Context, st *repository.Repository) error {
 	uids, err := st.GetRecentOrdersUID(ctx, c.capacity)
 	if err != nil {
 		return fmt.Errorf("failed to get recent orders: %v", err)

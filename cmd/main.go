@@ -1,3 +1,4 @@
+// Binary gorder is the entry point for the order processing service.
 package main
 
 import (

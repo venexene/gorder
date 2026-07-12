@@ -1,3 +1,4 @@
+// Binary emulator sends randomly generated and pre-defined test orders to Kafka.
 package main
 
 import (

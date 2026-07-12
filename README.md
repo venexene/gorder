@@ -2,7 +2,6 @@
 
 [![Go Version](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go)](https://go.dev/)
 [![CI](https://github.com/venexene/gorder/actions/workflows/ci.yml/badge.svg)](https://github.com/venexene/gorder/actions)
-[![Go Report Card](https://goreportcard.com/badge/github.com/venexene/gorder)](https://goreportcard.com/report/github.com/venexene/gorder)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -109,11 +108,12 @@ cmd/
 internal/
   app/                 dependency injection, router setup
   config/              .env loader with validation and defaults
-  storage/             pgxpool, CRUD, transactions, migrations
-  models/              Order, Delivery, Payment, Item, User, request DTOs
+  repository/          pgxpool, CRUD, transactions, migrations
+  models/              Order, Delivery, Payment, Item, User
+  dto/                 API request/response types
   cache/               custom LRU
   consumer/            Kafka consumer, deserialization, validation
-  handlers/            HTTP handlers, cache-aside
+  handler/             HTTP handlers (orders, auth), cache-aside
   middleware/          JWT auth, role-based access, metrics
   metrics/             Prometheus counters, gauges, histograms
 migrations/            golang-migrate SQL files

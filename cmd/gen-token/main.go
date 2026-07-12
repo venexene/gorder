@@ -1,3 +1,4 @@
+// Binary gen-token generates a JWT for testing purposes.
 package main
 
 import (

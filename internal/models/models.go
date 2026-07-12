@@ -1,3 +1,4 @@
+// Package models defines domain types for orders, users, and related entities.
 package models
 
 import (
@@ -77,17 +78,6 @@ type User struct {
 	Username     string `json:"-"`
 	PasswordHash string `json:"-"`
 	Role         string `json:"-"`
-}
-
-// LoginRequest is the JSON body for POST /login and POST /register.
-type LoginRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
-// RefreshRequest is the JSON body for POST /refresh.
-type RefreshRequest struct {
-	RefreshToken string `json:"refresh_token"`
 }
 
 // LoadOrderFromFile reads and validates an Order from a JSON file.

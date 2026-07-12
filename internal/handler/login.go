@@ -10,12 +10,13 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/venexene/gorder/internal/dto"
 	"github.com/venexene/gorder/internal/models"
 )
 
 // LoginHandle authenticates a user by username and password, returning access and refresh tokens.
 func (h *Handler) LoginHandle(c *gin.Context) {
-	var login models.LoginRequest
+	var login dto.LoginRequest
 
 	if err := c.ShouldBindJSON(&login); err != nil {
 		h.logger.Error("failed to bind json to struct", "error", err)
@@ -25,7 +26,7 @@ func (h *Handler) LoginHandle(c *gin.Context) {
 		return
 	}
 
-	user, err := h.storage.GetUser(c.Request.Context(), login.Username)
+	user, err := h.repo.GetUser(c.Request.Context(), login.Username)
 	if err != nil {
 		h.logger.Error("failed to get user from storage", "error", err)
 		c.JSON(http.StatusUnauthorized, gin.H{
@@ -62,7 +63,7 @@ func (h *Handler) LoginHandle(c *gin.Context) {
 
 // RegisterHandle creates a new user with a bcrypt-hashed password and default "user" role.
 func (h *Handler) RegisterHandle(c *gin.Context) {
-	var req models.LoginRequest
+	var req dto.LoginRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -84,7 +85,7 @@ func (h *Handler) RegisterHandle(c *gin.Context) {
 		Role:         "user",
 	}
 
-	if err := h.storage.CreateUser(c.Request.Context(), user); err != nil {
+	if err := h.repo.CreateUser(c.Request.Context(), user); err != nil {
 		h.logger.Error("faied to create user in storage", "error", err)
 		c.JSON(http.StatusConflict, gin.H{"error": fmt.Sprintf("failed to create user in storage: %s", err)})
 		return
@@ -110,7 +111,7 @@ func createToken(userID, username, role, tokenType string, ttl time.Duration, se
 
 // RefreshHandle validates a refresh token and returns a new pair of access and refresh tokens.
 func (h *Handler) RefreshHandle(c *gin.Context) {
-	var req models.RefreshRequest
+	var req dto.RefreshRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.logger.Error("failed to bind json to struct", "error", err)

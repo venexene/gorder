@@ -1,3 +1,4 @@
+// Package middleware provides HTTP middleware for JWT auth, role-based access, and metrics.
 package middleware
 
 import (

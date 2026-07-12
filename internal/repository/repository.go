@@ -1,4 +1,5 @@
-package storage
+// Package repository provides database access using pgx and golang-migrate.
+package repository
 
 import (
 	"context"
@@ -17,8 +18,8 @@ import (
 	"github.com/venexene/gorder/internal/models"
 )
 
-// Storage provides database operations backed by a pgx connection pool.
-type Storage struct {
+// Repository provides database operations backed by a pgx connection pool.
+type Repository struct {
 	pool          *pgxpool.Pool
 	migrationPath string
 }
@@ -36,9 +37,9 @@ type Interface interface {
 	GetUser(ctx context.Context, username string) (*models.User, error)
 }
 
-// NewStorage creates a new Storage with the given connection pool and migration path.
-func NewStorage(pool *pgxpool.Pool, migrationPath string) *Storage {
-	return &Storage{
+// NewStorage creates a new Repository with the given connection pool and migration path.
+func NewStorage(pool *pgxpool.Pool, migrationPath string) *Repository {
+	return &Repository{
 		pool:          pool,
 		migrationPath: migrationPath,
 	}
@@ -72,7 +73,7 @@ func CreatePool(ctx context.Context, cfg *config.Config) (*pgxpool.Pool, error) 
 }
 
 // RunMigrations applies all pending database migrations.
-func (s *Storage) RunMigrations() error {
+func (s *Repository) RunMigrations() error {
 	connStr := s.pool.Config().ConnConfig.ConnString()
 
 	m, err := migrate.New(fmt.Sprintf("file://%s", s.migrationPath), connStr)
@@ -88,12 +89,12 @@ func (s *Storage) RunMigrations() error {
 }
 
 // CheckHealthDB verifies the database connection pool is alive by pinging the server.
-func (s *Storage) CheckHealthDB(ctx context.Context) error {
+func (s *Repository) CheckHealthDB(ctx context.Context) error {
 	return s.pool.Ping(ctx)
 }
 
 // GetOrderByUID retrieves a complete order with delivery, payment and items.
-func (s *Storage) GetOrderByUID(ctx context.Context, orderUID string) (*models.Order, error) {
+func (s *Repository) GetOrderByUID(ctx context.Context, orderUID string) (*models.Order, error) {
 	orderQuery := `
 		SELECT
 			o.order_uid, o.track_number, o.entry, o.locale,
@@ -182,7 +183,7 @@ func (s *Storage) GetOrderByUID(ctx context.Context, orderUID string) (*models.O
 }
 
 // AddOrder inserts an order and all related data in a single transaction.
-func (s *Storage) AddOrder(ctx context.Context, order *models.Order) error {
+func (s *Repository) AddOrder(ctx context.Context, order *models.Order) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -294,7 +295,7 @@ func (s *Storage) AddOrder(ctx context.Context, order *models.Order) error {
 }
 
 // OrderExists checks whether an order with the given UID exists.
-func (s *Storage) OrderExists(ctx context.Context, orderUID string) (bool, error) {
+func (s *Repository) OrderExists(ctx context.Context, orderUID string) (bool, error) {
 	query := "SELECT EXISTS(SELECT 1 FROM orders WHERE order_uid = $1)"
 	var exists bool
 
@@ -307,7 +308,7 @@ func (s *Storage) OrderExists(ctx context.Context, orderUID string) (bool, error
 }
 
 // AddOrderIfNotExists inserts an order only if its UID is not already present.
-func (s *Storage) AddOrderIfNotExists(ctx context.Context, order *models.Order) error {
+func (s *Repository) AddOrderIfNotExists(ctx context.Context, order *models.Order) error {
 	exists, err := s.OrderExists(ctx, order.OrderUID)
 	if err != nil {
 		return err
@@ -320,7 +321,7 @@ func (s *Storage) AddOrderIfNotExists(ctx context.Context, order *models.Order) 
 }
 
 // GetAllOrdersUID returns UIDs of all orders in the database.
-func (s *Storage) GetAllOrdersUID(ctx context.Context) ([]string, error) {
+func (s *Repository) GetAllOrdersUID(ctx context.Context) ([]string, error) {
 	query := "SELECT order_uid FROM orders"
 	rows, err := s.pool.Query(ctx, query)
 	if err != nil {
@@ -344,7 +345,7 @@ func (s *Storage) GetAllOrdersUID(ctx context.Context) ([]string, error) {
 }
 
 // GetRecentOrdersUID returns UIDs of the most recent orders, limited by count.
-func (s *Storage) GetRecentOrdersUID(ctx context.Context, limit int) ([]string, error) {
+func (s *Repository) GetRecentOrdersUID(ctx context.Context, limit int) ([]string, error) {
 	query := "SELECT order_uid FROM orders ORDER BY date_created DESC LIMIT $1"
 
 	rows, err := s.pool.Query(ctx, query, limit)
@@ -370,7 +371,7 @@ func (s *Storage) GetRecentOrdersUID(ctx context.Context, limit int) ([]string, 
 }
 
 // CreateUser inserts a new user into the database.
-func (s *Storage) CreateUser(ctx context.Context, user *models.User) error {
+func (s *Repository) CreateUser(ctx context.Context, user *models.User) error {
 	query := `
         INSERT INTO users (
             username, password_hash, role
@@ -390,7 +391,7 @@ func (s *Storage) CreateUser(ctx context.Context, user *models.User) error {
 }
 
 // GetUser retrieves a user by username from the database.
-func (s *Storage) GetUser(ctx context.Context, username string) (*models.User, error) {
+func (s *Repository) GetUser(ctx context.Context, username string) (*models.User, error) {
 	query := `
 		SELECT id, username, password_hash, role FROM users WHERE username = $1
 	`

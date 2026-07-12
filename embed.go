@@ -1,3 +1,4 @@
+// Package gorder embeds web templates and static assets into the binary.
 package gorder
 
 import "embed"

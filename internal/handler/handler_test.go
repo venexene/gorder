@@ -103,11 +103,11 @@ func (m *mockConsumer) CheckHealth(ctx context.Context) error {
 func newTestHandler() *Handler {
 	logger := slog.New(slog.DiscardHandler)
 	hd := &HandlerDependencies{
-		Storage:  newMockStorage(),
-		Consumer: &mockConsumer{},
-		Cache:    cache.NewCache(10, logger, nil),
-		Logger:   logger,
-		Config:   &config.Config{JWTSecret: testJWTSecret},
+		Repository: newMockStorage(),
+		Consumer:   &mockConsumer{},
+		Cache:      cache.NewCache(10, logger, nil),
+		Logger:     logger,
+		Config:     &config.Config{JWTSecret: testJWTSecret},
 	}
 	return NewHandler(hd)
 }
@@ -160,7 +160,7 @@ func TestReadyCheckHandle(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			handler := newTestHandler()
 			handler.consumer = &mockConsumer{healthError: tt.kafkaError}
-			handler.storage = &mockStorage{healthError: tt.dbError}
+			handler.repo = &mockStorage{healthError: tt.dbError}
 
 			w := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(w)

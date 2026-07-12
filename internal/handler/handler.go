@@ -1,3 +1,4 @@
+// Package handler implements HTTP request handlers for the gorder service.
 package handler
 
 import (
@@ -15,7 +16,7 @@ import (
 	"github.com/venexene/gorder/internal/cache"
 	"github.com/venexene/gorder/internal/config"
 	"github.com/venexene/gorder/internal/consumer"
-	"github.com/venexene/gorder/internal/storage"
+	"github.com/venexene/gorder/internal/repository"
 )
 
 const (
@@ -24,16 +25,16 @@ const (
 )
 
 type HandlerDependencies struct {
-	Storage  storage.Interface
-	Consumer consumer.HealthChecker
-	Cache    *cache.Cache
-	Logger   *slog.Logger
-	Config   *config.Config
+	Repository repository.Interface
+	Consumer   consumer.HealthChecker
+	Cache      *cache.Cache
+	Logger     *slog.Logger
+	Config     *config.Config
 }
 
 // Handler holds dependencies for HTTP request handlers.
 type Handler struct {
-	storage  storage.Interface
+	repo     repository.Interface
 	consumer consumer.HealthChecker
 	cache    *cache.Cache
 	logger   *slog.Logger
@@ -43,7 +44,7 @@ type Handler struct {
 // NewHandler creates a Handler with the given dependencies.
 func NewHandler(hd *HandlerDependencies) *Handler {
 	return &Handler{
-		storage:  hd.Storage,
+		repo:     hd.Repository,
 		consumer: hd.Consumer,
 		cache:    hd.Cache,
 		logger:   hd.Logger,
@@ -69,7 +70,7 @@ func (h *Handler) ReadyCheckHandle(c *gin.Context) {
 		defer wg.Done()
 		ctxDB, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
-		if err := h.storage.CheckHealthDB(ctxDB); err != nil {
+		if err := h.repo.CheckHealthDB(ctxDB); err != nil {
 			healthy.Store(false)
 			dbStatus = statusDown
 			return
@@ -131,7 +132,7 @@ func (h *Handler) GetOrderByUIDHandle(c *gin.Context) {
 		return
 	}
 
-	order, err := h.storage.GetOrderByUID(c.Request.Context(), orderUID)
+	order, err := h.repo.GetOrderByUID(c.Request.Context(), orderUID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			userLogger.Warn("order not found", "order_uid", orderUID)
@@ -162,7 +163,7 @@ func (h *Handler) GetAllOrdersUIDHandle(c *gin.Context) {
 	}
 	userLogger := h.logger.With("user_id", userID)
 
-	orderUIDs, err := h.storage.GetAllOrdersUID(c.Request.Context())
+	orderUIDs, err := h.repo.GetAllOrdersUID(c.Request.Context())
 	if err != nil {
 		userLogger.Error("failed to get uids", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -178,7 +179,7 @@ func (h *Handler) GetAllOrdersUIDHandle(c *gin.Context) {
 
 // AllOrdersPageHandle renders the HTML page listing all orders.
 func (h *Handler) AllOrdersPageHandle(c *gin.Context) {
-	orderUIDs, err := h.storage.GetAllOrdersUID(c.Request.Context())
+	orderUIDs, err := h.repo.GetAllOrdersUID(c.Request.Context())
 
 	if err != nil {
 		h.logger.Error("failed to load orders", "error", err)
@@ -209,7 +210,7 @@ func (h *Handler) OrderPageHandle(c *gin.Context) {
 		return
 	}
 
-	order, err := h.storage.GetOrderByUID(c.Request.Context(), orderUID)
+	order, err := h.repo.GetOrderByUID(c.Request.Context(), orderUID)
 	if err != nil {
 		h.logger.Error("failed to get info by uid", "error", err)
 		if errors.Is(err, pgx.ErrNoRows) {

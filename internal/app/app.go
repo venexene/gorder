@@ -1,3 +1,4 @@
+// Package app wires dependencies, starts the HTTP server, and handles graceful shutdown.
 package app
 
 import (
@@ -24,11 +25,11 @@ import (
 	"github.com/venexene/gorder/internal/handler"
 	"github.com/venexene/gorder/internal/metrics"
 	"github.com/venexene/gorder/internal/middleware"
-	"github.com/venexene/gorder/internal/storage"
+	"github.com/venexene/gorder/internal/repository"
 )
 
 type Dependencies struct {
-	Storage  *storage.Storage
+	Repository  *repository.Repository
 	Consumer *consumer.Consumer
 	Cache    *cache.Cache
 	Metrics  *metrics.Metrics
@@ -61,17 +62,17 @@ func Run() error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	pool, err := storage.CreatePool(ctx, dep.Config)
+	pool, err := repository.CreatePool(ctx, dep.Config)
 	if err != nil {
 		dep.Logger.Error("failed to connect database", "error", err)
 		return fmt.Errorf("Failed to connect database")
 	}
 	defer pool.Close()
 
-	dep.Storage = storage.NewStorage(pool, dep.Config.MigrationDir)
+	dep.Repository = repository.NewStorage(pool, dep.Config.MigrationDir)
 	dep.Logger.Info("connected database")
 
-	if err := dep.Storage.RunMigrations(); err != nil {
+	if err := dep.Repository.RunMigrations(); err != nil {
 		dep.Logger.Error("failed to migrate database", "error", err)
 		return fmt.Errorf("Failed to migrate database")
 	}
@@ -79,14 +80,14 @@ func Run() error {
 	dep.Cache = cache.NewCache(dep.Config.CacheCapacity, dep.Logger, dep.Metrics)
 	dep.Logger.Info("created cache")
 
-	if err := dep.Cache.Populate(ctx, dep.Storage); err != nil {
+	if err := dep.Cache.Populate(ctx, dep.Repository); err != nil {
 		dep.Logger.Error("failed to populate cache", "error", err)
 	} else {
 		dep.Logger.Info("populated cache with orders", "count", dep.Cache.Size())
 	}
 
 	reader := createKafkaReader(dep.Config)
-	dep.Consumer = consumer.NewConsumer(reader, dep.Storage, dep.Cache, dep.Logger, dep.Metrics, dep.Config.KafkaBrokers)
+	dep.Consumer = consumer.NewConsumer(reader, dep.Repository, dep.Cache, dep.Logger, dep.Metrics, dep.Config.KafkaBrokers)
 	defer dep.Consumer.Close()
 	dep.Logger.Info("created message consumer")
 
@@ -172,7 +173,7 @@ func createRouter(dep *Dependencies) (*gin.Engine, error) {
 	router.StaticFS("/static", http.FS(sub))
 
 	hd := &handler.HandlerDependencies{
-		Storage:  dep.Storage,
+		Repository:  dep.Repository,
 		Consumer: dep.Consumer,
 		Cache:    dep.Cache,
 		Logger:   dep.Logger,

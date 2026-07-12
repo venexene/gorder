@@ -47,7 +47,7 @@ type mockStorage struct {
 	addOrderErr   error
 }
 
-func newMockStorage() *mockStorage {
+func newMockRepository() *mockStorage {
 	return &mockStorage{}
 }
 
@@ -183,18 +183,18 @@ func TestConsume_Successful(t *testing.T) {
 	reader.AddMessage(kafka.Message{Value: validOrderJSON()})
 
 	logger := slog.New(slog.DiscardHandler)
-	storage := newMockStorage()
+	repo := newMockRepository()
 	cc := cache.NewCache(10, logger, nil)
-	c := NewConsumer(reader, storage, cc, logger, nil, "")
+	c := NewConsumer(reader, repo, cc, logger, nil, "")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	c.Consume(ctx)
 
-	if len(storage.addOrderCalls) != 1 {
-		t.Fatalf("expected 1 AddOrder call, got %d", len(storage.addOrderCalls))
+	if len(repo.addOrderCalls) != 1 {
+		t.Fatalf("expected 1 AddOrder call, got %d", len(repo.addOrderCalls))
 	}
-	uid := storage.addOrderCalls[0].OrderUID
+	uid := repo.addOrderCalls[0].OrderUID
 	if uid != "e1a2b3c4-d5e6-4f8a-9b0c-1d2e3f4a5b6c" {
 		t.Errorf("unexpected OrderUID: %s", uid)
 	}
@@ -209,15 +209,15 @@ func TestConsume_SkipInvalid(t *testing.T) {
 	reader.AddMessage(kafka.Message{Value: validOrderJSON()})
 
 	logger := slog.New(slog.DiscardHandler)
-	storage := newMockStorage()
-	c := NewConsumer(reader, storage, cache.NewCache(10, logger, nil), logger, nil, "")
+	repo := newMockRepository()
+	c := NewConsumer(reader, repo, cache.NewCache(10, logger, nil), logger, nil, "")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	c.Consume(ctx)
 
-	if len(storage.addOrderCalls) != 1 {
-		t.Fatalf("expected 1 AddOrder call, got %d", len(storage.addOrderCalls))
+	if len(repo.addOrderCalls) != 1 {
+		t.Fatalf("expected 1 AddOrder call, got %d", len(repo.addOrderCalls))
 	}
 }
 
@@ -226,10 +226,10 @@ func TestConsume_Duplicate(t *testing.T) {
 	reader.AddMessage(kafka.Message{Value: validOrderJSON()})
 
 	logger := slog.New(slog.DiscardHandler)
-	storage := newMockStorage()
-	storage.addOrderErr = errors.New("already exists")
+	repo := newMockRepository()
+	repo.addOrderErr = errors.New("already exists")
 	cc := cache.NewCache(10, logger, nil)
-	c := NewConsumer(reader, storage, cc, logger, nil, "")
+	c := NewConsumer(reader, repo, cc, logger, nil, "")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -247,14 +247,14 @@ func TestConsume_GracefulShutdown(t *testing.T) {
 	reader.AddMessage(kafka.Message{Value: validOrderJSON()})
 
 	logger := slog.New(slog.DiscardHandler)
-	storage := newMockStorage()
-	c := NewConsumer(reader, storage, cache.NewCache(10, logger, nil), logger, nil, "")
+	repo := newMockRepository()
+	c := NewConsumer(reader, repo, cache.NewCache(10, logger, nil), logger, nil, "")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	c.Consume(ctx)
 
-	if len(storage.addOrderCalls) != 3 {
-		t.Errorf("expected 3 AddOrder calls, got %d", len(storage.addOrderCalls))
+	if len(repo.addOrderCalls) != 3 {
+		t.Errorf("expected 3 AddOrder calls, got %d", len(repo.addOrderCalls))
 	}
 }

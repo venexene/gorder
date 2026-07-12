@@ -1,3 +1,4 @@
+// Package consumer reads orders from Kafka, validates them, and persists to storage.
 package consumer
 
 import (
@@ -13,7 +14,7 @@ import (
 	"github.com/venexene/gorder/internal/cache"
 	"github.com/venexene/gorder/internal/metrics"
 	"github.com/venexene/gorder/internal/models"
-	"github.com/venexene/gorder/internal/storage"
+	"github.com/venexene/gorder/internal/repository"
 )
 
 // MessageReader abstracts reading messages from a message broker.
@@ -25,7 +26,7 @@ type MessageReader interface {
 // Consumer reads orders from topic and persists them.
 type Consumer struct {
 	reader       MessageReader
-	storage      storage.Interface
+	repo         repository.Interface
 	validator    *validator.Validate
 	cache        *cache.Cache
 	logger       *slog.Logger
@@ -34,12 +35,12 @@ type Consumer struct {
 }
 
 // NewConsumer creates a Consumer.
-func NewConsumer(reader MessageReader, storage storage.Interface, cache *cache.Cache, logger *slog.Logger, metrics *metrics.Metrics, kafkaBrokers string) *Consumer {
+func NewConsumer(reader MessageReader, repo repository.Interface, cache *cache.Cache, logger *slog.Logger, metrics *metrics.Metrics, kafkaBrokers string) *Consumer {
 	validate := validator.New()
 
 	return &Consumer{
 		reader:       reader,
-		storage:      storage,
+		repo:         repo,
 		validator:    validate,
 		cache:        cache,
 		logger:       logger,
@@ -68,7 +69,7 @@ func (c *Consumer) Consume(ctx context.Context) {
 			continue
 		}
 
-		if err := c.storage.AddOrderIfNotExists(ctx, order); err != nil {
+		if err := c.repo.AddOrderIfNotExists(ctx, order); err != nil {
 			c.logger.Error("failed to add order", "error", err)
 		} else {
 			c.logger.Info("order saved", "order_uid", order.OrderUID)

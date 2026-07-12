@@ -1,4 +1,4 @@
-package storage
+package repository
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	testStorage *Storage
+	testStorage *Repository
 	testPool    *pgxpool.Pool
 )
 
