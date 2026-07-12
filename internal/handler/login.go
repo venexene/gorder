@@ -200,5 +200,5 @@ func (h *Handler) RefreshHandle(c *gin.Context) {
 }
 
 func (h *Handler) RegisterPageHandle(c *gin.Context) {
-	c.HTML(http.StatusOK, "login.html", nil)
+	c.HTML(http.StatusOK, "register.html", nil)
 }
