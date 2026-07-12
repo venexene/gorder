@@ -23,12 +23,15 @@ Public endpoints (no auth):
 ```
 GET  /health/live         server liveness
 GET  /health/ready        database and Kafka connectivity
-POST /login               authenticate, returns access and refresh tokens
+GET  /login               login page (HTML)
+POST /login               authenticate, sets httpOnly cookies
+GET  /register            registration page (HTML)
 POST /register            create new user
 POST /refresh             get new access token from refresh token
+POST /logout              clear cookies
 ```
 
-Protected endpoints (JWT required, `Authorization: Bearer <token>`):
+Protected endpoints (JWT required, cookie or Authorization header):
 
 ```
 GET  /                    all orders, HTML (user and admin)
@@ -39,12 +42,12 @@ GET  /api/all_orders_uids all UIDs, JSON (admin only)
 
 ## Authentication
 
-- Passwords hashed with bcrypt
-- Access token: 15 minutes, contains user_id, username, role
-- Refresh token: 7 days, rotation on each use
-- Role-based access: `admin`, `user`
-- Default admin account created by migration: username - admin, password - admin
-- Token generation utility: `make token`
+- Passwords hashed with bcrypt (cost 10)
+- Tokens stored in httpOnly cookies for browser or Authorization header for API
+- Access token: 15 minutes, refresh token: 7 days with rotation
+- Browsers are redirected to `/login` when unauthenticated
+- Role-based access: `admin` for all endpoints, `user` for HTML pages only
+- Default admin created by migration: username - `admin`, password - `admin`
 
 ## Flow
 
@@ -113,7 +116,7 @@ internal/
   dto/                 API request/response types
   cache/               custom LRU
   consumer/            Kafka consumer, deserialization, validation
-  handler/             HTTP handlers (orders, auth), cache-aside
+  handler/             HTTP handlers (orders, auth, pages), cache-aside
   middleware/          JWT auth, role-based access, metrics
   metrics/             Prometheus counters, gauges, histograms
 migrations/            golang-migrate SQL files
@@ -142,4 +145,5 @@ CI runs on every push and pull request: lint → test → docker build.
 make test
 ```
 
-Repository tests use testcontainers. Handler and middleware tests use mocks.
+Repository tests use testcontainers (real PostgreSQL). Handler and middleware tests use mocks.
+Covers orders, auth (login/register/refresh/logout), cache, config, consumer.
