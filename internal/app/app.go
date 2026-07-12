@@ -29,12 +29,12 @@ import (
 )
 
 type Dependencies struct {
-	Repository  *repository.Repository
-	Consumer *consumer.Consumer
-	Cache    *cache.Cache
-	Metrics  *metrics.Metrics
-	Config   *config.Config
-	Logger   *slog.Logger
+	Repository *repository.Repository
+	Consumer   *consumer.Consumer
+	Cache      *cache.Cache
+	Metrics    *metrics.Metrics
+	Config     *config.Config
+	Logger     *slog.Logger
 }
 
 func Run() error {
@@ -173,11 +173,11 @@ func createRouter(dep *Dependencies) (*gin.Engine, error) {
 	router.StaticFS("/static", http.FS(sub))
 
 	hd := &handler.HandlerDependencies{
-		Repository:  dep.Repository,
-		Consumer: dep.Consumer,
-		Cache:    dep.Cache,
-		Logger:   dep.Logger,
-		Config:   dep.Config,
+		Repository: dep.Repository,
+		Consumer:   dep.Consumer,
+		Cache:      dep.Cache,
+		Logger:     dep.Logger,
+		Config:     dep.Config,
 	}
 	handler := handler.NewHandler(hd)
 

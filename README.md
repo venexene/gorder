@@ -142,4 +142,4 @@ CI runs on every push and pull request: lint → test → docker build.
 make test
 ```
 
-Storage tests use testcontainers. Handler and middleware tests use mocks.
+Repository tests use testcontainers (real PostgreSQL in Docker). Handler and middleware tests use mocks.
