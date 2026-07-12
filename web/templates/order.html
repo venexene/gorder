@@ -8,7 +8,10 @@
 </head>
 <body>
     <div class="container">
-        <h1>Order {{.OrderUID}}</h1>
+        <div class="top-bar">
+            <h1>Order {{.OrderUID}}</h1>
+            <button id="logout-btn" class="logout-btn">Logout</button>
+        </div>
         
         <div class="section">
             <h2>Order Information</h2>
@@ -69,5 +72,12 @@
 
         <a href="/" class="back-link">← Back to orders list</a>
     </div>
+
+    <script>
+        document.getElementById('logout-btn').addEventListener('click', function() {
+            fetch('/logout', {method: 'POST'})
+                .then(() => window.location.href = '/login');
+        });
+    </script>
 </body>
 </html>

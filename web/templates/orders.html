@@ -8,7 +8,10 @@
 </head>
 <body>
     <div class="container">
-        <h1>Orders List</h1>
+        <div class="top-bar">
+            <h1>Orders List</h1>
+            <button id="logout-btn" class="logout-btn">Logout</button>
+        </div>
         
         <div class="search-form">
             <input type="text" id="searchInput" placeholder="Search by UUID..." onkeyup="filterOrders()">
@@ -25,6 +28,11 @@
     </div>
 
     <script>
+        document.getElementById('logout-btn').addEventListener('click', function() {
+            fetch('/logout', {method: 'POST'})
+                .then(() => window.location.href = '/login');
+        });
+
         function filterOrders() {
             const input = document.getElementById('searchInput');
             const filter = input.value.toUpperCase();

@@ -2,7 +2,6 @@
 package middleware
 
 import (
-	"errors"
 	"net/http"
 	"strings"
 
@@ -14,7 +13,7 @@ import (
 func JWTAuth(secret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenStr := ""
-		err := errors.New("")
+		var err error
 
 		auth := c.GetHeader("Authorization")
 		if strings.HasPrefix(auth, "Bearer") {
@@ -24,6 +23,11 @@ func JWTAuth(secret string) gin.HandlerFunc {
 		if tokenStr == "" {
 			tokenStr, err = c.Cookie("access_token")
 			if err != nil {
+				if strings.Contains(c.GetHeader("Accept"), "text/html") {
+					c.Redirect(http.StatusFound, "/login")
+					c.Abort()
+					return
+				}
 				c.JSON(http.StatusUnauthorized, gin.H{
 					"error": "Failed to read access token from cookie",
 				})
@@ -40,6 +44,11 @@ func JWTAuth(secret string) gin.HandlerFunc {
 		})
 
 		if err != nil || !token.Valid {
+			if strings.Contains(c.GetHeader("Accept"), "text/html") {
+				c.Redirect(http.StatusFound, "/login")
+				c.Abort()
+				return
+			}
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error": "Invalid or expired token",
 			})
@@ -49,6 +58,11 @@ func JWTAuth(secret string) gin.HandlerFunc {
 
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
+			if strings.Contains(c.GetHeader("Accept"), "text/html") {
+				c.Redirect(http.StatusFound, "/login")
+				c.Abort()
+				return
+			}
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": "Invalid token claims",
 			})

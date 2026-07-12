@@ -134,6 +134,21 @@ func TestJWTAuth_CookieFallback(t *testing.T) {
 	}
 }
 
+func TestJWTAuth_BrowserRedirect(t *testing.T) {
+	router := setupJWTTestRouter()
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/test", nil)
+	req.Header.Set("Accept", "text/html")
+
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusFound {
+		t.Errorf("expected 302 redirect, got %d", w.Code)
+	}
+	if loc := w.Header().Get("Location"); loc != "/login" {
+		t.Errorf("expected redirect to /login, got %s", loc)
+	}
+}
 func setupRequireRoleRouter(roles ...string) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()

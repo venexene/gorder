@@ -257,3 +257,31 @@ h1, h2, h3 {
 .auth-footer a:hover {
     text-decoration: underline;
 }
+
+/* Top bar with logout */
+.top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.top-bar h1 {
+    margin: 0;
+}
+
+.logout-btn {
+    padding: 8px 18px;
+    background: #e53e3e;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.logout-btn:hover {
+    background: #c53030;
+}
