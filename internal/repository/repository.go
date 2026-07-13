@@ -28,7 +28,9 @@ type Repository struct {
 type Interface interface {
 	CheckHealthDB(ctx context.Context) error
 	GetOrderByUID(ctx context.Context, orderUID string) (*models.Order, error)
+	GetOrderByUIDAndUser(ctx context.Context, orderUID string, userID string) (*models.Order, error)
 	GetAllOrdersUID(ctx context.Context) ([]string, error)
+	GetAllOrdersUIDByUser(ctx context.Context, userID string) ([]string, error)
 	GetRecentOrdersUID(ctx context.Context, limit int) ([]string, error)
 	OrderExists(ctx context.Context, orderUID string) (bool, error)
 	AddOrder(ctx context.Context, order *models.Order) error
@@ -143,6 +145,95 @@ func (s *Repository) GetOrderByUID(ctx context.Context, orderUID string) (*model
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("failed to find order with UID %v: %w", orderUID, err)
+		}
+		return nil, fmt.Errorf("failed to query database: %w", err)
+	}
+
+	itemsQuery := "SELECT chrt_id, track_number, price, rid, name, sale, size, total_price, nm_id, brand, status FROM item WHERE order_uid = $1"
+	rows, err := s.pool.Query(ctx, itemsQuery, orderUID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query items: %w", err)
+	}
+	defer rows.Close()
+	var items []models.Item
+	for rows.Next() {
+		var item models.Item
+		err = rows.Scan(
+			&item.ChrtID,
+			&item.TrackNumber,
+			&item.Price,
+			&item.Rid,
+			&item.Name,
+			&item.Sale,
+			&item.Size,
+			&item.TotalPrice,
+			&item.NmID,
+			&item.Brand,
+			&item.Status,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan item: %w", err)
+		}
+		items = append(items, item)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate items: %w", err)
+	}
+	order.Items = items
+
+	return &order, nil
+}
+
+// GetOrderByUIDAndUser retrieves a complete order with delivery, payment and items by order and user id.
+func (s *Repository) GetOrderByUIDAndUser(ctx context.Context, orderUID string, userID string) (*models.Order, error) {
+	orderQuery := `
+		SELECT
+			o.order_uid, o.track_number, o.entry, o.locale,
+			o.internal_signature, o.customer_id, o.delivery_service,
+			o.shardkey, o.sm_id, o.date_created, o.oof_shard,
+			d.name, d.phone, d.zip, d.city, d.address, d.region, d.email,
+			p.transaction, p.request_id, p.currency, p.provider,
+			p.amount, p.payment_dt, p.bank, p.delivery_cost,
+			p.goods_total, p.custom_fee
+		FROM orders o
+		LEFT JOIN delivery d ON d.order_uid = o.order_uid
+		LEFT JOIN payment p ON p.order_uid = o.order_uid
+		WHERE o.order_uid = $1 AND o.customer_id = $2
+	`
+	var order models.Order
+	err := s.pool.QueryRow(ctx, orderQuery, orderUID, userID).Scan(
+		&order.OrderUID,
+		&order.TrackNumber,
+		&order.Entry,
+		&order.Locale,
+		&order.InternalSignature,
+		&order.CustomerID,
+		&order.DeliveryService,
+		&order.ShardKey,
+		&order.SMID,
+		&order.DateCreated,
+		&order.OOFShard,
+		&order.Delivery.Name,
+		&order.Delivery.Phone,
+		&order.Delivery.Zip,
+		&order.Delivery.City,
+		&order.Delivery.Address,
+		&order.Delivery.Region,
+		&order.Delivery.Email,
+		&order.Payment.Transaction,
+		&order.Payment.RequestID,
+		&order.Payment.Currency,
+		&order.Payment.Provider,
+		&order.Payment.Amount,
+		&order.Payment.PaymentDt,
+		&order.Payment.Bank,
+		&order.Payment.DeliveryCost,
+		&order.Payment.GoodsTotal,
+		&order.Payment.CustomFee,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("failed to find order with UID %v and User ID %v: %w", orderUID, userID, err)
 		}
 		return nil, fmt.Errorf("failed to query database: %w", err)
 	}
@@ -324,6 +415,30 @@ func (s *Repository) AddOrderIfNotExists(ctx context.Context, order *models.Orde
 func (s *Repository) GetAllOrdersUID(ctx context.Context) ([]string, error) {
 	query := "SELECT order_uid FROM orders"
 	rows, err := s.pool.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query orders: %w", err)
+	}
+	defer rows.Close()
+
+	var listUIDs []string
+	for rows.Next() {
+		var uid string
+		if err := rows.Scan(&uid); err != nil {
+			return nil, fmt.Errorf("failed to scan order_uid: %w", err)
+		}
+		listUIDs = append(listUIDs, uid)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate order_uid: %w", err)
+	}
+
+	return listUIDs, nil
+}
+
+// GetAllOrdersUIDByUser returns UIDs of all orders of user in the database.
+func (s *Repository) GetAllOrdersUIDByUser(ctx context.Context, userID string) ([]string, error) {
+	query := "SELECT order_uid FROM orders WHERE customer_id = $1"
+	rows, err := s.pool.Query(ctx, query, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query orders: %w", err)
 	}

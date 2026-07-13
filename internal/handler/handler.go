@@ -16,6 +16,7 @@ import (
 	"github.com/venexene/gorder/internal/cache"
 	"github.com/venexene/gorder/internal/config"
 	"github.com/venexene/gorder/internal/consumer"
+	"github.com/venexene/gorder/internal/models"
 	"github.com/venexene/gorder/internal/repository"
 )
 
@@ -152,6 +153,59 @@ func (h *Handler) GetOrderByUIDHandle(c *gin.Context) {
 	c.JSON(http.StatusOK, order)
 }
 
+// GetUserOrderByUIDHandle returns full users order data as JSON, using cache when available.
+func (h *Handler) GetUserOrderByUIDHandle(c *gin.Context) {
+	userID, ok := c.Get("user_id")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "User is not logged",
+		})
+		return
+	}
+	userLogger := h.logger.With("user_id", userID)
+	username, _ := c.Get("username")
+
+	orderUID := c.Param("uid")
+	if orderUID == "" {
+		userLogger.Warn("no uid received")
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "No UID received",
+		})
+		return
+	}
+
+	if cachedOrder, exists := h.cache.Get(orderUID); exists {
+		if cachedOrder.CustomerID == userID.(string) {
+			c.JSON(http.StatusOK, cachedOrder)
+		} else {
+			userLogger.Error("cached order doesn't belong to user")
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "Cached order doesn't belong to user",
+			})
+		}
+		return
+	}
+
+	order, err := h.repo.GetOrderByUIDAndUser(c.Request.Context(), orderUID, username.(string))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			userLogger.Warn("order not found", "order_uid", orderUID)
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "Failed to find order",
+			})
+		} else {
+			userLogger.Error("failed to get info by uid", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Internal server error",
+			})
+		}
+		return
+	}
+
+	h.cache.Set(order)
+	c.JSON(http.StatusOK, order)
+}
+
 // GetAllOrdersUIDHandle returns all order UIDs as JSON.
 func (h *Handler) GetAllOrdersUIDHandle(c *gin.Context) {
 	userID, ok := c.Get("user_id")
@@ -177,12 +231,63 @@ func (h *Handler) GetAllOrdersUIDHandle(c *gin.Context) {
 	})
 }
 
+// GetAllOrdersUIDHandle returns all users order UIDs as JSON.
+func (h *Handler) GetAllUserOrdersUIDHandle(c *gin.Context) {
+	userID, ok := c.Get("user_id")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "User is not logged",
+		})
+		return
+	}
+	userLogger := h.logger.With("user_id", userID)
+
+	orderUIDs, err := h.repo.GetAllOrdersUIDByUser(c.Request.Context(), userID.(string))
+	if err != nil {
+		userLogger.Error("failed to get uids", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to get order UIDs",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"order_uids": orderUIDs,
+	})
+}
+
 // AllOrdersPageHandle renders the HTML page listing all orders.
 func (h *Handler) AllOrdersPageHandle(c *gin.Context) {
-	orderUIDs, err := h.repo.GetAllOrdersUID(c.Request.Context())
+	userID, ok := c.Get("user_id")
+	if !ok {
+		h.logger.Error("user is not logged")
+		c.HTML(http.StatusUnauthorized, "error.html", gin.H{
+			"error": "User is not logged",
+		})
+		return
+	}
+	username, _ := c.Get("username")
+	userLogger := h.logger.With("user_id", userID)
+
+	role, ok := c.Get("role")
+	if !ok {
+		userLogger.Error("user has no role")
+		c.HTML(http.StatusUnauthorized, "error.html", gin.H{
+			"error": "User has no role",
+		})
+		return
+	}
+
+	var orderUIDs []string
+	var err error
+	if role.(string) == "admin" {
+		orderUIDs, err = h.repo.GetAllOrdersUID(c.Request.Context())
+	} else {
+		orderUIDs, err = h.repo.GetAllOrdersUIDByUser(c.Request.Context(), username.(string))
+	}
 
 	if err != nil {
-		h.logger.Error("failed to load orders", "error", err)
+		userLogger.Error("failed to load orders", "error", err)
 		c.HTML(http.StatusInternalServerError, "error.html", gin.H{
 			"error": "Failed to load orders",
 		})
@@ -196,9 +301,30 @@ func (h *Handler) AllOrdersPageHandle(c *gin.Context) {
 
 // OrderPageHandle renders the HTML page for a single order.
 func (h *Handler) OrderPageHandle(c *gin.Context) {
+	userID, ok := c.Get("user_id")
+	if !ok {
+		h.logger.Error("user is not logged")
+		c.HTML(http.StatusUnauthorized, "error.html", gin.H{
+			"error": "User is not logged",
+		})
+		return
+	}
+	userLogger := h.logger.With("user_id", userID)
+	username, _ := c.Get("username")
+
+	role, ok := c.Get("role")
+	if !ok {
+		userLogger.Error("user has no role")
+		c.HTML(http.StatusUnauthorized, "error.html", gin.H{
+			"error": "User has no role",
+		})
+		return
+	}
+
 	orderUID := c.Param("uid")
 
 	if orderUID == "" {
+		userLogger.Error("no uid received")
 		c.HTML(http.StatusBadRequest, "error.html", gin.H{
 			"error": "No UID received",
 		})
@@ -206,18 +332,35 @@ func (h *Handler) OrderPageHandle(c *gin.Context) {
 	}
 
 	if cachedOrder, exists := h.cache.Get(orderUID); exists {
+		if cachedOrder.CustomerID == userID.(string) {
+			c.HTML(http.StatusOK, "order.html", cachedOrder)
+		} else {
+			userLogger.Error("cached order doesn't belong to user")
+			c.HTML(http.StatusNotFound, "error.html", gin.H{
+				"error": "Cached order doesn't belong to user",
+			})
+		}
 		c.HTML(http.StatusOK, "order.html", cachedOrder)
 		return
 	}
 
-	order, err := h.repo.GetOrderByUID(c.Request.Context(), orderUID)
+	var order *models.Order
+	var err error
+	if role.(string) == "admin" {
+		order, err = h.repo.GetOrderByUID(c.Request.Context(), orderUID)
+	} else {
+		order, err = h.repo.GetOrderByUIDAndUser(c.Request.Context(), orderUID, username.(string))
+	}
+
 	if err != nil {
-		h.logger.Error("failed to get info by uid", "error", err)
+		h.logger.Error("failed to get info by uid and user", "error", err)
 		if errors.Is(err, pgx.ErrNoRows) {
+			userLogger.Error("orders not found")
 			c.HTML(http.StatusNotFound, "error.html", gin.H{
 				"error": "Orders not found",
 			})
 		} else {
+			userLogger.Error("internal server error")
 			c.HTML(http.StatusInternalServerError, "error.html", gin.H{
 				"error": "Internal server error",
 			})

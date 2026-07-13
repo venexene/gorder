@@ -26,6 +26,12 @@ func setTestUser(c *gin.Context, userID string) {
 	c.Set("user_id", userID)
 }
 
+func setTestUserFull(c *gin.Context, userID, username, role string) {
+	c.Set("user_id", userID)
+	c.Set("username", username)
+	c.Set("role", role)
+}
+
 type mockStorage struct {
 	healthError   error
 	users         map[string]*models.User
@@ -48,9 +54,33 @@ func (m *mockStorage) CheckHealthDB(ctx context.Context) error {
 
 func (m *mockStorage) GetOrderByUID(ctx context.Context, orderUID string) (*models.Order, error) {
 	if orderUID == "exist" {
-		return &models.Order{OrderUID: "exist", TrackNumber: "TRACK"}, nil
+		return &models.Order{OrderUID: "exist", TrackNumber: "TRACK", CustomerID: "admin"}, nil
+	}
+	if orderUID == "user-exist" {
+		return &models.Order{OrderUID: "user-exist", TrackNumber: "TRACK", CustomerID: "testuser"}, nil
 	}
 	return nil, pgx.ErrNoRows
+}
+
+func (m *mockStorage) GetOrderByUIDAndUser(ctx context.Context, orderUID, userID string) (*models.Order, error) {
+	order, err := m.GetOrderByUID(ctx, orderUID)
+	if err != nil {
+		return nil, err
+	}
+	if order.CustomerID != userID {
+		return nil, pgx.ErrNoRows
+	}
+	return order, nil
+}
+
+func (m *mockStorage) GetAllOrdersUIDByUser(ctx context.Context, userID string) ([]string, error) {
+	if userID == "testuser" {
+		return []string{"user-order1", "user-order2"}, nil
+	}
+	if userID == "admin" {
+		return []string{"order1", "order2"}, nil
+	}
+	return []string{}, nil
 }
 
 func (m *mockStorage) GetAllOrdersUID(ctx context.Context) ([]string, error) {
@@ -510,4 +540,76 @@ func makeRefreshToken(username, role string) string {
 func makeExpiredRefreshToken(username, role string) string {
 	token, _ := createToken("42", username, role, "refresh", -1*time.Hour, []byte(testJWTSecret))
 	return token
+}
+
+func TestGetUserOrderByUIDHandle_Success(t *testing.T) {
+	handler := newTestHandler()
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("GET", "/", nil)
+	c.Params = []gin.Param{{Key: "uid", Value: "user-exist"}}
+	setTestUserFull(c, "testuser", "testuser", "user")
+
+	handler.GetUserOrderByUIDHandle(c)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+	var order models.Order
+	json.NewDecoder(w.Body).Decode(&order)
+	if order.OrderUID != "user-exist" {
+		t.Errorf("expected OrderUID 'user-exist', got %s", order.OrderUID)
+	}
+}
+
+func TestGetUserOrderByUIDHandle_WrongOwner(t *testing.T) {
+	handler := newTestHandler()
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("GET", "/", nil)
+	c.Params = []gin.Param{{Key: "uid", Value: "exist"}}
+	setTestUserFull(c, "testuser", "testuser", "user")
+
+	handler.GetUserOrderByUIDHandle(c)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404 for wrong owner, got %d", w.Code)
+	}
+}
+
+func TestGetUserOrderByUIDHandle_CacheHitOwnOrder(t *testing.T) {
+	handler := newTestHandler()
+	testOrder := &models.Order{OrderUID: "cached-user", TrackNumber: "USER-CACHED", CustomerID: "testuser"}
+	handler.cache.Set(testOrder)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("GET", "/", nil)
+	c.Params = []gin.Param{{Key: "uid", Value: "cached-user"}}
+	setTestUserFull(c, "testuser", "testuser", "user")
+
+	handler.GetUserOrderByUIDHandle(c)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 for own cached order, got %d", w.Code)
+	}
+}
+
+func TestGetAllUserOrdersUIDHandle(t *testing.T) {
+	handler := newTestHandler()
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("GET", "/", nil)
+	setTestUserFull(c, "testuser", "testuser", "user")
+
+	handler.GetAllUserOrdersUIDHandle(c)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+	var body map[string][]string
+	json.NewDecoder(w.Body).Decode(&body)
+	if len(body["order_uids"]) != 2 {
+		t.Errorf("expected 2 UIDs for testuser, got %d", len(body["order_uids"]))
+	}
 }

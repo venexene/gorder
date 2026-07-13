@@ -414,17 +414,17 @@ func TestCreateUser_Success(t *testing.T) {
 	setupTest(t)
 	ctx := context.Background()
 
-	user := makeTestUser("alice")
+	user := makeTestUser("alice_test")
 
 	if err := testStorage.CreateUser(ctx, user); err != nil {
 		t.Fatalf("CreateUser failed: %v", err)
 	}
 
-	fetched, err := testStorage.GetUser(ctx, "alice")
+	fetched, err := testStorage.GetUser(ctx, "alice_test")
 	if err != nil {
 		t.Fatalf("GetUser failed: %v", err)
 	}
-	if fetched.Username != "alice" {
+	if fetched.Username != "alice_test" {
 		t.Errorf("expected username 'alice', got %s", fetched.Username)
 	}
 	if fetched.PasswordHash != user.PasswordHash {
@@ -442,7 +442,7 @@ func TestCreateUser_Duplicate(t *testing.T) {
 	setupTest(t)
 	ctx := context.Background()
 
-	user := makeTestUser("bob")
+	user := makeTestUser("bob_test")
 
 	if err := testStorage.CreateUser(ctx, user); err != nil {
 		t.Fatalf("first CreateUser failed: %v", err)
@@ -471,16 +471,16 @@ func TestGetUser_Found(t *testing.T) {
 	setupTest(t)
 	ctx := context.Background()
 
-	user := makeTestUser("charlie")
+	user := makeTestUser("charlie_test")
 	if err := testStorage.CreateUser(ctx, user); err != nil {
 		t.Fatalf("CreateUser failed: %v", err)
 	}
 
-	fetched, err := testStorage.GetUser(ctx, "charlie")
+	fetched, err := testStorage.GetUser(ctx, "charlie_test")
 	if err != nil {
 		t.Fatalf("GetUser failed: %v", err)
 	}
-	if fetched.Username != "charlie" {
+	if fetched.Username != "charlie_test" {
 		t.Errorf("expected username 'charlie', got %s", fetched.Username)
 	}
 	if fetched.Role != "user" {

@@ -232,18 +232,30 @@ func createRouter(dep *Dependencies) (*gin.Engine, error) {
 		})
 	}
 
-	admin := router.Group("/api")
-	admin.Use(middleware.JWTAuth(dep.Config.JWTSecret))
-	admin.Use(middleware.RequireRole("admin"))
+	adminAPI := router.Group("/api/admin")
+	adminAPI.Use(middleware.JWTAuth(dep.Config.JWTSecret))
+	adminAPI.Use(middleware.RequireRole("admin"))
 	{
-		admin.GET("/orders/:uid", func(c *gin.Context) {
+		adminAPI.GET("/orders/:uid", func(c *gin.Context) {
 			handler.GetOrderByUIDHandle(c)
 		})
 
-		admin.GET("/all_orders_uids", func(c *gin.Context) {
+		adminAPI.GET("/all_orders_uids", func(c *gin.Context) {
 			handler.GetAllOrdersUIDHandle(c)
 		})
+	}
 
+	userAPI := router.Group("/api/user")
+	userAPI.Use(middleware.JWTAuth(dep.Config.JWTSecret))
+	userAPI.Use(middleware.RequireRole("user"))
+	{
+		userAPI.GET("/orders/:uid", func(c *gin.Context) {
+			handler.GetUserOrderByUIDHandle(c)
+		})
+
+		userAPI.GET("/all_orders_uids", func(c *gin.Context) {
+			handler.GetAllUserOrdersUIDHandle(c)
+		})
 	}
 
 	return router, nil

@@ -6,5 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-INSERT INTO users (username, password_hash, role)
-VALUES ('admin', '$2y$10$.EbkHOLZG6UQP2i917mu.eJEswidNxY5DSxGVl1vI21TIkG3UZep2', 'admin');
+INSERT INTO users (username, password_hash, role) VALUES
+('admin', '$2a$10$E5SWv..hzx3hbgSGG6bijeoggUuyiAtVprKCpl04QFBvksdlwKSMm', 'admin'),
+('alice', '$2a$10$tsYLHkt4WE6TZqCsE.EzCOd/gWRwSSaZsueb9jS0NKLw8j0ls9gWK', 'user'),
+('bob',   '$2a$10$t.EeP5hXa/QSaOaa5r4y7.SUXJsTgbp7sL7Y/LSz.Ihqo//wpeJfi', 'user');

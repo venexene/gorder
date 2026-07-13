@@ -142,7 +142,7 @@ func generateRandomOrder() models.Order {
 		Entry:             generateRandomString(4),
 		Locale:            "ru",
 		InternalSignature: generateRandomString(10),
-		CustomerID:        generateRandomString(8),
+		CustomerID:        []string{"admin", "alice", "bob"}[rand.IntN(3)],
 		DeliveryService:   generateRandomString(7),
 		ShardKey:          fmt.Sprintf("%d", rand.IntN(10)),
 		SMID:              rand.UintN(100) + 1,

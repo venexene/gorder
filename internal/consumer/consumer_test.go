@@ -82,6 +82,14 @@ func (m *mockStorage) OrderExists(ctx context.Context, uid string) (bool, error)
 	return false, nil
 }
 
+func (m *mockStorage) GetOrderByUIDAndUser(ctx context.Context, orderUID, userID string) (*models.Order, error) {
+	return nil, nil
+}
+
+func (m *mockStorage) GetAllOrdersUIDByUser(ctx context.Context, userID string) ([]string, error) {
+	return nil, nil
+}
+
 func (m *mockStorage) CreateUser(ctx context.Context, user *models.User) error {
 	return nil
 }
