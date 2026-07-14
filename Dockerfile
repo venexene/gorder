@@ -2,7 +2,9 @@ FROM golang:1.25 AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
+RUN go install github.com/swaggo/swag/cmd/swag@latest
 COPY . .
+RUN swag init -g cmd/main.go
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /app/main ./cmd
 
 

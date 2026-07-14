@@ -1,4 +1,13 @@
 // Binary gorder is the entry point for the order processing service.
+//
+// @title           Gorder API
+// @version         1.0
+// @description     Event-driven order processing service with JWT authentication.
+// @host            localhost:8080
+// @BasePath        /
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 package main
 
 import (
@@ -6,6 +15,7 @@ import (
 	"os"
 
 	"github.com/venexene/gorder/internal/app"
+	_ "github.com/venexene/gorder/docs"
 )
 
 func main() {

@@ -16,6 +16,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	ginprom "github.com/logocomune/gin-prometheus"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 	"github.com/segmentio/kafka-go"
 	"github.com/ulule/limiter/v3"
 	"github.com/ulule/limiter/v3/drivers/store/memory"
@@ -222,6 +224,8 @@ func createRouter(dep *Dependencies) (*gin.Engine, error) {
 		public.GET("/health/ready", handler.ReadyCheckHandle)
 
 		public.GET("/metrics", gin.WrapH(ginprom.GetMetricHandler()))
+
+		public.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 		public.GET("/login", handler.LoginPageHandle)
 

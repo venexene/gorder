@@ -27,9 +27,12 @@ lint:
 build:
 	@go build -o gorder ./cmd
 
-clean:
+clean: swagger
 	@rm -f gorder
 
 token:
 	@echo "Generating token..."
 	@go run ./cmd/gen-token
+
+swagger:
+	@swag init -g cmd/main.go

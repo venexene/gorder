@@ -109,6 +109,16 @@ func (h *Handler) ReadyCheckHandle(c *gin.Context) {
 }
 
 // GetOrderByUIDHandle returns full order data as JSON, using cache when available.
+// @Summary      Get order by UID (admin)
+// @Description  Returns full order data as JSON for admin users.
+// @Tags         orders
+// @Security     BearerAuth
+// @Produce      json
+// @Param        uid  path  string  true  "Order UID"
+// @Success      200  {object}  models.Order
+// @Failure      401  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Router       /api/admin/orders/{uid} [get]
 func (h *Handler) GetOrderByUIDHandle(c *gin.Context) {
 	userID, ok := c.Get("user_id")
 	if !ok {
@@ -153,7 +163,17 @@ func (h *Handler) GetOrderByUIDHandle(c *gin.Context) {
 	c.JSON(http.StatusOK, order)
 }
 
-// GetUserOrderByUIDHandle returns full users order data as JSON, using cache when available.
+// GetUserOrderByUIDHandle returns a user's own order as JSON.
+// @Summary      Get own order by UID (user)
+// @Description  Returns order data if it belongs to the authenticated user.
+// @Tags         orders
+// @Security     BearerAuth
+// @Produce      json
+// @Param        uid  path  string  true  "Order UID"
+// @Success      200  {object}  models.Order
+// @Failure      401  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Router       /api/user/orders/{uid} [get]
 func (h *Handler) GetUserOrderByUIDHandle(c *gin.Context) {
 	userID, ok := c.Get("user_id")
 	if !ok {
@@ -163,7 +183,14 @@ func (h *Handler) GetUserOrderByUIDHandle(c *gin.Context) {
 		return
 	}
 	userLogger := h.logger.With("user_id", userID)
-	username, _ := c.Get("username")
+
+	username, ok := c.Get("username")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "User is not logged",
+		})
+		return
+	}
 
 	orderUID := c.Param("uid")
 	if orderUID == "" {
@@ -175,7 +202,7 @@ func (h *Handler) GetUserOrderByUIDHandle(c *gin.Context) {
 	}
 
 	if cachedOrder, exists := h.cache.Get(orderUID); exists {
-		if cachedOrder.CustomerID == userID.(string) {
+		if cachedOrder.CustomerID == username.(string) {
 			c.JSON(http.StatusOK, cachedOrder)
 		} else {
 			userLogger.Error("cached order doesn't belong to user")
@@ -207,6 +234,14 @@ func (h *Handler) GetUserOrderByUIDHandle(c *gin.Context) {
 }
 
 // GetAllOrdersUIDHandle returns all order UIDs as JSON.
+// @Summary      Get all order UIDs (admin)
+// @Description  Returns all order UIDs for admin users.
+// @Tags         orders
+// @Security     BearerAuth
+// @Produce      json
+// @Success      200  {object}  map[string][]string
+// @Failure      401  {object}  map[string]string
+// @Router       /api/admin/all_orders_uids [get]
 func (h *Handler) GetAllOrdersUIDHandle(c *gin.Context) {
 	userID, ok := c.Get("user_id")
 	if !ok {
@@ -232,6 +267,14 @@ func (h *Handler) GetAllOrdersUIDHandle(c *gin.Context) {
 }
 
 // GetAllOrdersUIDHandle returns all users order UIDs as JSON.
+// @Summary      Get own order UIDs (user)
+// @Description  Returns order UIDs belonging to the authenticated user.
+// @Tags         orders
+// @Security     BearerAuth
+// @Produce      json
+// @Success      200  {object}  map[string][]string
+// @Failure      401  {object}  map[string]string
+// @Router       /api/user/all_orders_uids [get]
 func (h *Handler) GetAllUserOrdersUIDHandle(c *gin.Context) {
 	userID, ok := c.Get("user_id")
 	if !ok {
@@ -241,8 +284,9 @@ func (h *Handler) GetAllUserOrdersUIDHandle(c *gin.Context) {
 		return
 	}
 	userLogger := h.logger.With("user_id", userID)
+	username, _ := c.Get("username")
 
-	orderUIDs, err := h.repo.GetAllOrdersUIDByUser(c.Request.Context(), userID.(string))
+	orderUIDs, err := h.repo.GetAllOrdersUIDByUser(c.Request.Context(), username.(string))
 	if err != nil {
 		userLogger.Error("failed to get uids", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -332,7 +376,7 @@ func (h *Handler) OrderPageHandle(c *gin.Context) {
 	}
 
 	if cachedOrder, exists := h.cache.Get(orderUID); exists {
-		if cachedOrder.CustomerID == userID.(string) {
+		if cachedOrder.CustomerID == username.(string) {
 			c.HTML(http.StatusOK, "order.html", cachedOrder)
 		} else {
 			userLogger.Error("cached order doesn't belong to user")
@@ -340,7 +384,6 @@ func (h *Handler) OrderPageHandle(c *gin.Context) {
 				"error": "Cached order doesn't belong to user",
 			})
 		}
-		c.HTML(http.StatusOK, "order.html", cachedOrder)
 		return
 	}
 

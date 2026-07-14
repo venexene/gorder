@@ -15,6 +15,17 @@ import (
 )
 
 // LoginHandle authenticates a user by username and password, returning access and refresh tokens.
+//
+// @Summary      Authenticate user
+// @Description  Login with username and password, sets httpOnly cookies with JWT tokens.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request body dto.LoginRequest true "Credentials"
+// @Success      200  {object}  map[string]string  "logged in"
+// @Failure      400  {object}  map[string]string
+// @Failure      401  {object}  map[string]string
+// @Router       /login [post]
 func (h *Handler) LoginHandle(c *gin.Context) {
 	var login dto.LoginRequest
 
@@ -64,6 +75,13 @@ func (h *Handler) LoginPageHandle(c *gin.Context) {
 	c.HTML(http.StatusOK, "login.html", nil)
 }
 
+// LogoutHandle clears access and refresh cookies.
+// @Summary      Logout
+// @Description  Clears httpOnly cookies to end the session.
+// @Tags         auth
+// @Produce      json
+// @Success      200  {object}  map[string]string
+// @Router       /logout [post]
 func (h *Handler) LogoutHandle(c *gin.Context) {
 	c.SetCookie("access_token", "", -1, "/", "", false, true)
 	c.SetCookie("refresh_token", "", -1, "/", "", false, true)
@@ -71,6 +89,17 @@ func (h *Handler) LogoutHandle(c *gin.Context) {
 }
 
 // RegisterHandle creates a new user with a bcrypt-hashed password and default "user" role.
+//
+// @Summary      Register new user
+// @Description  Create a new account with username and password.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request body dto.LoginRequest true "Credentials"
+// @Success      201  {object}  map[string]string  "created"
+// @Failure      400  {object}  map[string]string
+// @Failure      409  {object}  map[string]string
+// @Router       /register [post]
 func (h *Handler) RegisterHandle(c *gin.Context) {
 	var req dto.LoginRequest
 
@@ -118,6 +147,17 @@ func createToken(userID, username, role, tokenType string, ttl time.Duration, se
 }
 
 // RefreshHandle validates a refresh token and returns a new pair of access and refresh tokens.
+//
+// @Summary      Refresh tokens
+// @Description  Get a new access token using a valid refresh token.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request body dto.RefreshRequest true "Refresh token"
+// @Success      200  {object}  map[string]string  "new tokens"
+// @Failure      400  {object}  map[string]string
+// @Failure      401  {object}  map[string]string
+// @Router       /refresh [post]
 func (h *Handler) RefreshHandle(c *gin.Context) {
 	var req dto.RefreshRequest
 
