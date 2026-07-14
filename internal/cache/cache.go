@@ -79,6 +79,10 @@ func (c *Cache) Set(order *models.Order) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	if order == nil {
+		return
+	}
+
 	if n, exist := c.elems[order.OrderUID]; exist {
 		n.value = order
 		c.moveToHead(n)
