@@ -14,8 +14,8 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/venexene/gorder/internal/app"
 	_ "github.com/venexene/gorder/docs"
+	"github.com/venexene/gorder/internal/app"
 )
 
 var (

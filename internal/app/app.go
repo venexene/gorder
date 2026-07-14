@@ -16,9 +16,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	ginprom "github.com/logocomune/gin-prometheus"
+	"github.com/segmentio/kafka-go"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-	"github.com/segmentio/kafka-go"
 	"github.com/ulule/limiter/v3"
 	"github.com/ulule/limiter/v3/drivers/store/memory"
 
@@ -41,8 +41,8 @@ type Dependencies struct {
 	Logger          *slog.Logger
 	Limiter         *limiter.Limiter
 	RegisterLimiter *limiter.Limiter
-	Version			string
-	Commit 			string
+	Version         string
+	Commit          string
 }
 
 func Run(dep *Dependencies) error {
