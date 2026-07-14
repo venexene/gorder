@@ -82,6 +82,12 @@ func TestLoad_Full(t *testing.T) {
 	if cfg.KafkaTopic != "orders" {
 		t.Errorf("KafkaTopic: want orders, got %s", cfg.KafkaTopic)
 	}
+	if cfg.RateLimit != "5-S" {
+		t.Errorf("RateLimit: want 10-M, got %s", cfg.RateLimit)
+	}
+	if cfg.RateLimitRegister != "3-M" {
+		t.Errorf("RateLimitRegister: want 2-H, got %s", cfg.RateLimitRegister)
+	}
 }
 
 func TestLoad_Defaults(t *testing.T) {
@@ -107,6 +113,12 @@ func TestLoad_Defaults(t *testing.T) {
 	}
 	if cfg.JWTSecret != "secret" {
 		t.Errorf("JWTSecret: want secret, got %s", cfg.JWTSecret)
+	}
+	if cfg.RateLimit != DefaultRateLimit {
+		t.Errorf("RateLimit: want %s, got %s", DefaultRateLimit, cfg.RateLimit)
+	}
+	if cfg.RateLimitRegister != DefaultRateLimitRegister {
+		t.Errorf("RateLimitRegister: want %s, got %s", DefaultRateLimitRegister, cfg.RateLimitRegister)
 	}
 }
 

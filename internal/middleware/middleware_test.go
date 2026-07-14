@@ -9,6 +9,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 
+	"github.com/ulule/limiter/v3"
+	"github.com/ulule/limiter/v3/drivers/store/memory"
+
 	"github.com/venexene/gorder/internal/metrics"
 )
 
@@ -230,5 +233,55 @@ func TestJWTAuth_NoBearerPrefix(t *testing.T) {
 
 	if w.Code != http.StatusUnauthorized {
 		t.Errorf("expected 401, got %d", w.Code)
+	}
+}
+
+func TestRateLimitMiddleware_UnderLimit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rate, _ := limiter.NewRateFromFormatted("10-S")
+	store := memory.NewStore()
+	limit := limiter.New(store, rate)
+
+	router := gin.New()
+	router.Use(RateLimitMiddleware(limit))
+	router.GET("/test", func(c *gin.Context) {
+		c.String(http.StatusOK, "ok")
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/test", nil)
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 under limit, got %d", w.Code)
+	}
+}
+
+func TestRateLimitMiddleware_Exceeded(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rate, _ := limiter.NewRateFromFormatted("1-S")
+	store := memory.NewStore()
+	limit := limiter.New(store, rate)
+
+	router := gin.New()
+	router.Use(RateLimitMiddleware(limit))
+	router.GET("/test", func(c *gin.Context) {
+		c.String(http.StatusOK, "ok")
+	})
+
+	// First request passes
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/test", nil)
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("first request should pass, got %d", w.Code)
+	}
+
+	// Second request should be rate limited
+	w2 := httptest.NewRecorder()
+	req2 := httptest.NewRequest("GET", "/test", nil)
+	router.ServeHTTP(w2, req2)
+	if w2.Code != http.StatusTooManyRequests {
+		t.Errorf("expected 429, got %d", w2.Code)
 	}
 }

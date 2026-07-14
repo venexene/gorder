@@ -12,25 +12,29 @@ import (
 
 // Config holds all application configuration loaded from environment variables.
 type Config struct {
-	HTTPPort      string
-	CacheCapacity int
-	LogFormat     string
-	JWTSecret     string
-	DBHost        string
-	DBPort        string
-	DBUser        string
-	DBPass        string
-	DBName        string
-	DBSSLMode     string
-	MigrationDir  string
-	KafkaBrokers  string
-	KafkaTopic    string
+	HTTPPort          string
+	CacheCapacity     int
+	LogFormat         string
+	JWTSecret         string
+	DBHost            string
+	DBPort            string
+	DBUser            string
+	DBPass            string
+	DBName            string
+	DBSSLMode         string
+	MigrationDir      string
+	KafkaBrokers      string
+	KafkaTopic        string
+	RateLimit         string
+	RateLimitRegister string
 }
 
 const (
-	LogFormatText       = "text"
-	LogFormatJSON       = "json"
-	DefaultMigrationDir = "migrations"
+	LogFormatText            = "text"
+	LogFormatJSON            = "json"
+	DefaultMigrationDir      = "migrations"
+	DefaultRateLimit         = "5-S"
+	DefaultRateLimitRegister = "3-M"
 )
 
 // Load reads the given env file and returns Config.
@@ -53,19 +57,21 @@ func Load(path string) (*Config, error) {
 	}
 
 	cfg := &Config{
-		HTTPPort:      os.Getenv("HTTP_PORT"),
-		CacheCapacity: cacheCapacity,
-		LogFormat:     os.Getenv("LOG_FORMAT"),
-		JWTSecret:     os.Getenv("JWT_SECRET"),
-		DBHost:        os.Getenv("DB_HOST"),
-		DBPort:        os.Getenv("DB_PORT"),
-		DBUser:        os.Getenv("DB_USER"),
-		DBPass:        os.Getenv("DB_PASSWORD"),
-		DBName:        os.Getenv("DB_NAME"),
-		DBSSLMode:     os.Getenv("DB_SSL_MODE"),
-		MigrationDir:  os.Getenv("MIGRATION_DIR"),
-		KafkaBrokers:  os.Getenv("KAFKA_BROKERS"),
-		KafkaTopic:    os.Getenv("KAFKA_TOPIC"),
+		HTTPPort:          os.Getenv("HTTP_PORT"),
+		CacheCapacity:     cacheCapacity,
+		LogFormat:         os.Getenv("LOG_FORMAT"),
+		JWTSecret:         os.Getenv("JWT_SECRET"),
+		DBHost:            os.Getenv("DB_HOST"),
+		DBPort:            os.Getenv("DB_PORT"),
+		DBUser:            os.Getenv("DB_USER"),
+		DBPass:            os.Getenv("DB_PASSWORD"),
+		DBName:            os.Getenv("DB_NAME"),
+		DBSSLMode:         os.Getenv("DB_SSL_MODE"),
+		MigrationDir:      os.Getenv("MIGRATION_DIR"),
+		KafkaBrokers:      os.Getenv("KAFKA_BROKERS"),
+		KafkaTopic:        os.Getenv("KAFKA_TOPIC"),
+		RateLimit:         os.Getenv("RATE_LIMIT"),
+		RateLimitRegister: os.Getenv("RATE_LIMIT_REGISTER"),
 	}
 
 	if cfg.LogFormat != LogFormatText && cfg.LogFormat != LogFormatJSON {
@@ -107,6 +113,12 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.KafkaTopic == "" {
 		return nil, fmt.Errorf("KAFKA_TOPIC is required")
+	}
+	if cfg.RateLimit == "" {
+		cfg.RateLimit = DefaultRateLimit
+	}
+	if cfg.RateLimitRegister == "" {
+		cfg.RateLimitRegister = DefaultRateLimitRegister
 	}
 
 	httpPort, err := strconv.Atoi(cfg.HTTPPort)

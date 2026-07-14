@@ -17,6 +17,8 @@ import (
 	"github.com/gin-gonic/gin"
 	ginprom "github.com/logocomune/gin-prometheus"
 	"github.com/segmentio/kafka-go"
+	"github.com/ulule/limiter/v3"
+	"github.com/ulule/limiter/v3/drivers/store/memory"
 
 	"github.com/venexene/gorder"
 	"github.com/venexene/gorder/internal/cache"
@@ -29,12 +31,14 @@ import (
 )
 
 type Dependencies struct {
-	Repository *repository.Repository
-	Consumer   *consumer.Consumer
-	Cache      *cache.Cache
-	Metrics    *metrics.Metrics
-	Config     *config.Config
-	Logger     *slog.Logger
+	Repository      *repository.Repository
+	Consumer        *consumer.Consumer
+	Cache           *cache.Cache
+	Metrics         *metrics.Metrics
+	Config          *config.Config
+	Logger          *slog.Logger
+	Limiter         *limiter.Limiter
+	RegisterLimiter *limiter.Limiter
 }
 
 func Run() error {
@@ -98,6 +102,20 @@ func Run() error {
 	}()
 	dep.Logger.Info("started consume process", "topic", dep.Config.KafkaTopic)
 
+	dep.Limiter, err = createRateLimiter(dep.Config.RateLimit)
+	if err != nil {
+		dep.Logger.Error("failed to create rate limiter", "error", err)
+		return fmt.Errorf("Failed to create rate limiter")
+	}
+	dep.Logger.Info("started rate limiter", "limit", dep.Config.RateLimit)
+
+	dep.RegisterLimiter, err = createRateLimiter(dep.Config.RateLimitRegister)
+	if err != nil {
+		dep.Logger.Error("failed to create register rate limiter", "error", err)
+		return fmt.Errorf("Failed to create register rate limiter")
+	}
+	dep.Logger.Info("started register rate limiter", "limit", dep.Config.RateLimitRegister)
+
 	router, err := createRouter(dep)
 	if err != nil {
 		dep.Logger.Error("failed to create router", "error", err)
@@ -159,6 +177,19 @@ func createKafkaReader(cfg *config.Config) *kafka.Reader {
 	return reader
 }
 
+func createRateLimiter(formatted string) (*limiter.Limiter, error) {
+	rate, err := limiter.NewRateFromFormatted(formatted)
+	if err != nil {
+		return nil, err
+	}
+
+	store := memory.NewStore()
+
+	limit := limiter.New(store, rate)
+
+	return limit, nil
+}
+
 func createRouter(dep *Dependencies) (*gin.Engine, error) {
 	router := gin.Default()
 
@@ -186,76 +217,50 @@ func createRouter(dep *Dependencies) (*gin.Engine, error) {
 
 	public := router.Group("")
 	{
-		public.GET("/health/live", func(c *gin.Context) {
-			handler.LiveCheckHandle(c)
-		})
+		public.GET("/health/live", handler.LiveCheckHandle)
 
-		public.GET("/health/ready", func(c *gin.Context) {
-			handler.ReadyCheckHandle(c)
-		})
+		public.GET("/health/ready", handler.ReadyCheckHandle)
 
 		public.GET("/metrics", gin.WrapH(ginprom.GetMetricHandler()))
 
-		public.GET("/login", func(c *gin.Context) {
-			handler.LoginPageHandle(c)
-		})
+		public.GET("/login", handler.LoginPageHandle)
 
-		public.POST("/login", func(c *gin.Context) {
-			handler.LoginHandle(c)
-		})
+		public.POST("/login", middleware.RateLimitMiddleware(dep.Limiter), handler.LoginHandle)
 
 		public.POST("/logout", handler.LogoutHandle)
 
-		public.GET("/register", func(c *gin.Context) {
-			handler.RegisterPageHandle(c)
-		})
+		public.GET("/register", handler.RegisterPageHandle, middleware.RateLimitMiddleware(dep.Limiter))
 
-		public.POST("/register", func(c *gin.Context) {
-			handler.RegisterHandle(c)
-		})
+		public.POST("/register", handler.RegisterHandle)
 
-		public.POST("/refresh", func(c *gin.Context) {
-			handler.RefreshHandle(c)
-		})
+		public.POST("/refresh", middleware.RateLimitMiddleware(dep.Limiter), handler.RefreshHandle)
 	}
 
 	user := router.Group("")
 	user.Use(middleware.JWTAuth(dep.Config.JWTSecret))
 	user.Use(middleware.RequireRole("user", "admin"))
 	{
-		user.GET("/", func(c *gin.Context) {
-			handler.AllOrdersPageHandle(c)
-		})
+		user.GET("/", handler.AllOrdersPageHandle)
 
-		user.GET("/:uid", func(c *gin.Context) {
-			handler.OrderPageHandle(c)
-		})
+		user.GET("/:uid", handler.OrderPageHandle)
 	}
 
 	adminAPI := router.Group("/api/admin")
 	adminAPI.Use(middleware.JWTAuth(dep.Config.JWTSecret))
 	adminAPI.Use(middleware.RequireRole("admin"))
 	{
-		adminAPI.GET("/orders/:uid", func(c *gin.Context) {
-			handler.GetOrderByUIDHandle(c)
-		})
+		adminAPI.GET("/orders/:uid", handler.GetOrderByUIDHandle)
 
-		adminAPI.GET("/all_orders_uids", func(c *gin.Context) {
-			handler.GetAllOrdersUIDHandle(c)
-		})
+		adminAPI.GET("/all_orders_uids", handler.GetAllOrdersUIDHandle)
 	}
 
 	userAPI := router.Group("/api/user")
 	userAPI.Use(middleware.JWTAuth(dep.Config.JWTSecret))
 	userAPI.Use(middleware.RequireRole("user"))
 	{
-		userAPI.GET("/orders/:uid", func(c *gin.Context) {
-			handler.GetUserOrderByUIDHandle(c)
-		})
+		userAPI.GET("/orders/:uid", handler.GetUserOrderByUIDHandle)
 
-		userAPI.GET("/all_orders_uids", func(c *gin.Context) {
-			handler.GetAllUserOrdersUIDHandle(c)
-		})
+		userAPI.GET("/all_orders_uids", handler.GetAllUserOrdersUIDHandle)
 	}
 
 	return router, nil
