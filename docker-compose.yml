@@ -22,7 +22,11 @@ services:
 
 
   app:
-    build: .
+    build:
+      context: .
+      args:
+        VERSION: ${VERSION:-dev}
+        COMMIT: ${COMMIT:-unknown}
     container_name: gorder-app
     depends_on:
       db:
@@ -40,6 +44,8 @@ services:
        - CACHE_CAPACITY=${CACHE_CAPACITY}
        - LOG_FORMAT=${LOG_FORMAT}
        - JWT_SECRET=${JWT_SECRET}
+       - RATE_LIMIT=${RATE_LIMIT}
+       - RATE_LIMIT_REGISTER=${RATE_LIMIT_REGISTER}
        - DB_HOST=${DB_HOST}
        - DB_PORT=${DB_PORT}
        - DB_USER=${DB_USER}

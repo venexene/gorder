@@ -41,10 +41,11 @@ type Dependencies struct {
 	Logger          *slog.Logger
 	Limiter         *limiter.Limiter
 	RegisterLimiter *limiter.Limiter
+	Version			string
+	Commit 			string
 }
 
-func Run() error {
-	dep := &Dependencies{}
+func Run(dep *Dependencies) error {
 	var err error
 
 	dep.Config, err = config.Load(".env")
@@ -226,6 +227,8 @@ func createRouter(dep *Dependencies) (*gin.Engine, error) {
 		public.GET("/metrics", gin.WrapH(ginprom.GetMetricHandler()))
 
 		public.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+		public.GET("/api/version", handler.VersionHandle)
 
 		public.GET("/login", handler.LoginPageHandle)
 

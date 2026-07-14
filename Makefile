@@ -1,4 +1,8 @@
-.PHONY: up down test lint build clean token emulate
+.PHONY: up down test lint build clean token emulate swagger
+
+VERSION ?= dev
+COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+
 
 help:
 	@echo "Usage: make [target]"
@@ -13,7 +17,7 @@ help:
 	@echo "  emulate  - Emulate producer"
 
 up:
-	@docker compose up --build -d
+	@COMMIT=$(COMMIT) VERSION=$(VERSION) docker compose up --build -d
 
 down:
 	@docker compose down -v
@@ -24,10 +28,10 @@ test:
 lint:
 	@golangci-lint run
 
-build:
-	@go build -o gorder ./cmd
+build: swagger
+	@go build -ldflags="-X main.version=$(VERSION) -X main.commit=$(COMMIT)" -o gorder ./cmd
 
-clean: swagger
+clean:
 	@rm -f gorder
 
 token:

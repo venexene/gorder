@@ -31,6 +31,8 @@ type HandlerDependencies struct {
 	Cache      *cache.Cache
 	Logger     *slog.Logger
 	Config     *config.Config
+	Version    string
+	Commit     string
 }
 
 // Handler holds dependencies for HTTP request handlers.
@@ -40,6 +42,8 @@ type Handler struct {
 	cache    *cache.Cache
 	logger   *slog.Logger
 	config   *config.Config
+	version  string
+	commit   string
 }
 
 // NewHandler creates a Handler with the given dependencies.
@@ -50,6 +54,8 @@ func NewHandler(hd *HandlerDependencies) *Handler {
 		cache:    hd.Cache,
 		logger:   hd.Logger,
 		config:   hd.Config,
+		version:  hd.Version,
+		commit:   hd.Commit,
 	}
 }
 
@@ -413,4 +419,19 @@ func (h *Handler) OrderPageHandle(c *gin.Context) {
 
 	h.cache.Set(order)
 	c.HTML(http.StatusOK, "order.html", order)
+}
+
+// VersionHandle returns the application version and commit hash.
+//
+//	@Summary		Get version info
+//	@Description	Returns the build version and commit hash of the service.
+//	@Tags			system
+//	@Produce		json
+//	@Success		200	{object}	map[string]string
+//	@Router			/api/version [get]
+func (h *Handler) VersionHandle(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"version": h.version,
+		"commit":  h.commit,
+	})
 }

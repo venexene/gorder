@@ -18,8 +18,17 @@ import (
 	_ "github.com/venexene/gorder/docs"
 )
 
+var (
+	version = "dev"
+	commit  = "unknown"
+)
+
 func main() {
-	if err := app.Run(); err != nil {
+	dep := &app.Dependencies{}
+	dep.Version = version
+	dep.Commit = commit
+
+	if err := app.Run(dep); err != nil {
 		slog.Error("failed to run app", "error", err)
 		os.Exit(1)
 	}
