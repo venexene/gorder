@@ -5,7 +5,11 @@
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Event-driven order processing service. Kafka ingestion, PostgreSQL persistence, in-memory LRU cache, REST API, JWT auth, Prometheus and Grafana metrics, structured logging. Built with Go.
+Event-driven order processing service. Kafka ingestion, PostgreSQL persistence, in-memory LRU cache, REST API, JWT auth with RBAC, rate limiting, Swagger docs, Prometheus and Grafana metrics, structured logging. Built with Go.
+
+## Tech Stack
+
+**Go 1.25** · **Gin** · **PostgreSQL** · **Apache Kafka** · **Docker** · **Prometheus** · **Grafana** · **JWT** · **Swagger** · **GitHub Actions**
 
 ## Quick start
 
@@ -14,40 +18,64 @@ cp .env.example .env
 make up
 ```
 
-The service starts at `http://localhost:8080`. The emulator sends test orders from `testdata/` to Kafka automatically on first run.
+Open `http://localhost:8080/login` — sign in as `admin` / `admin`. Swagger UI at `/swagger/index.html`. The emulator sends test orders from `testdata/` to Kafka automatically on first run.
 
 ## API
 
-Public endpoints (no auth):
+Swagger UI available at `/swagger/index.html` when the service is running.
+
+### Public endpoints
 
 ```
-GET  /health/live         server liveness
-GET  /health/ready        database and Kafka connectivity
-GET  /login               login page (HTML)
-POST /login               authenticate, sets httpOnly cookies
-GET  /register            registration page (HTML)
-POST /register            create new user
-POST /refresh             get new access token from refresh token
-POST /logout              clear cookies
+GET  /health/live          server liveness
+GET  /health/ready         database and Kafka connectivity
+GET  /metrics              Prometheus metrics
+GET  /swagger/*any         Swagger UI
+GET  /api/version          build version and commit hash
+GET  /login                login page (HTML)
+POST /login                authenticate, sets httpOnly cookies  [rate-limited]
+POST /logout               clear cookies
+GET  /register             registration page (HTML)
+POST /register             create new user                      [rate-limited]
+POST /refresh              get new access token from refresh    [rate-limited]
 ```
 
-Protected endpoints (JWT required, cookie or Authorization header):
+### User endpoints (JWT required, role: user or admin)
 
 ```
-GET  /                    all orders, HTML (user and admin)
-GET  /:uid                single order, HTML (user and admin)
-GET  /api/orders/:uid     order by UID, JSON (admin only)
-GET  /api/all_orders_uids all UIDs, JSON (admin only)
+GET  /                           all orders (HTML)
+GET  /:uid                       single order (HTML)
+GET  /api/user/orders/:uid       order by UID
+GET  /api/user/all_orders_uids   all user's order UIDs
+```
+
+### Admin endpoints (JWT required, role: admin)
+
+```
+GET  /api/admin/orders/:uid      order by UID
+GET  /api/admin/all_orders_uids  all order UIDs
 ```
 
 ## Authentication
 
 - Passwords hashed with bcrypt (cost 10)
-- Tokens stored in httpOnly cookies for browser or Authorization header for API
+- Tokens stored in httpOnly cookies for browser or `Authorization: Bearer <token>` header for API
 - Access token: 15 minutes, refresh token: 7 days with rotation
 - Browsers are redirected to `/login` when unauthenticated
-- Role-based access: `admin` for all endpoints, `user` for HTML pages only
-- Default admin created by migration: username - `admin`, password - `admin`
+- Role-based access: `admin` sees all orders, `user` sees only their own
+- Default users created by migration: `admin`/`admin`, `alice`/`alice`, `bob`/`bob`
+
+## Rate Limiting
+
+Auth endpoints are rate-limited to prevent brute-force attacks:
+
+| Endpoint | Default limit | Config variable |
+|----------|--------------|-----------------|
+| `POST /login` | 5 req/sec | `RATE_LIMIT` |
+| `POST /register` | 3 req/min | `RATE_LIMIT_REGISTER` |
+| `POST /refresh` | 5 req/sec | `RATE_LIMIT` |
+
+Format: `rate-period` where period is `S` - second, `M` - minute, or `H` - hour. Uses `ulule/limiter` with in-memory store.
 
 ## Flow
 
@@ -86,6 +114,19 @@ All settings in `.env`. Copy `.env.example` and fill in your values.
 | `MIGRATION_DIR` | `migrations` | path to migration files |
 | `KAFKA_BROKERS` | - | Kafka bootstrap servers (required) |
 | `KAFKA_TOPIC` | - | topic to consume (required) |
+| `RATE_LIMIT` | `5-S` | auth rate limit (login, refresh) |
+| `RATE_LIMIT_REGISTER` | `3-M` | registration rate limit |
+
+## Version
+
+Build version and commit hash are injected at link time via `ldflags`:
+
+```bash
+make build                          # version=dev, commit=<git hash>
+VERSION=1.0.0 make build            # version=1.0.0
+```
+
+The `/api/version` endpoint returns the current values. In Docker, `make up` passes `VERSION` and `COMMIT` as build args.
 
 ## Docker Compose
 
@@ -116,8 +157,8 @@ internal/
   dto/                 API request/response types
   cache/               custom LRU
   consumer/            Kafka consumer, deserialization, validation
-  handler/             HTTP handlers (orders, auth, pages), cache-aside
-  middleware/          JWT auth, role-based access, metrics
+  handler/             HTTP handlers (orders, auth, pages, version), cache-aside
+  middleware/          JWT auth, role-based access, rate limiting, metrics
   metrics/             Prometheus counters, gauges, histograms
 migrations/            golang-migrate SQL files
 web/                   Go templates, static CSS
@@ -133,7 +174,8 @@ make up         # start all services
 make down       # stop and remove containers and volumes
 make test       # run tests with race detection
 make lint       # run golangci-lint
-make build      # build binary
+make build      # build binary (includes swagger generation)
+make swagger    # regenerate Swagger docs
 make token      # generate JWT for testing
 ```
 
@@ -146,4 +188,3 @@ make test
 ```
 
 Repository tests use testcontainers (real PostgreSQL). Handler and middleware tests use mocks.
-Covers orders, auth (login/register/refresh/logout), cache, config, consumer.
