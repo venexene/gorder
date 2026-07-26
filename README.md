@@ -77,24 +77,6 @@ Auth endpoints are rate-limited to prevent brute-force attacks:
 
 Format: `rate-period` where period is `S` - second, `M` - minute, or `H` - hour. Uses `ulule/limiter` with in-memory store.
 
-## Flow
-
-Write path:
-
-```
-Kafka -> consumer -> validate -> PostgreSQL
-                              -> LRU cache
-```
-
-Read path:
-
-```
-GET /api/orders/:uid -> cache hit? -> return
-                      -> cache miss -> PostgreSQL -> fill cache -> return
-```
-
-On startup, the cache is preloaded with the most recent orders from the database.
-
 ## Configuration
 
 All settings in `.env`. Copy `.env.example` and fill in your values.
@@ -140,7 +122,7 @@ The `/api/version` endpoint returns the current values. In Docker, `make up` pas
 | `prometheus` | scrapes metrics from app on `/metrics` |
 | `grafana` | dashboards, data source preconfigured to Prometheus |
 
-All services on the `orders-network` bridge. Prometheus at `:9090`, Grafana at `:3000`. Volumes `postgres_data`, `kafka_data`, `prometheus_data`, and `grafana_data` persist across restarts. Reset with `make down`.
+All services on the `orders-network` bridge. Prometheus at `:9090`, Grafana at `:3000`. Volumes `postgres_data`, `kafka_data`, `prometheus_data`, and `grafana_data` persist across restarts.
 
 ## Structure
 
