@@ -21,6 +21,13 @@ import (
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
+	if err := run(logger); err != nil {
+		logger.Error("failed to run emulator", "error", err)
+		os.Exit(1)
+	}
+}
+
+func run(logger *slog.Logger) error {
 	brokers := os.Getenv("KAFKA_BROKERS")
 	if brokers == "" {
 		brokers = "kafka:9092"
@@ -32,7 +39,13 @@ func main() {
 		Addr:  kafka.TCP(kafkaBrokers...),
 		Topic: topic,
 	}
-	defer writer.Close()
+	
+	defer func () {
+		if err := writer.Close(); err != nil {
+			logger.Error("failed to close writer", "error", err)
+		}
+	}()
+
 	for i := 0; i < 10; i++ {
 		order := generateRandomOrder()
 		message, err := json.Marshal(order)
@@ -49,13 +62,13 @@ func main() {
 
 		if err != nil {
 			logger.Error("failed to write message", "error", err)
-			os.Exit(1)
-		} else {
-			logger.Debug("message sent", "order_uid", order.OrderUID)
+			return err
 		}
+		logger.Debug("message sent", "order_uid", order.OrderUID)
 
 		time.Sleep(1 * time.Second)
 	}
+
 	for i := 1; i < 6; i++ {
 		filename := filepath.Join("testdata", fmt.Sprintf("order%d.json", i))
 		order, err := models.LoadOrderFromFile(filename)
@@ -77,13 +90,14 @@ func main() {
 
 		if err != nil {
 			logger.Error("failed to write message", "error", err)
-			os.Exit(1)
-		} else {
-			logger.Debug("message sent", "order_uid", order.OrderUID)
+			return err
 		}
+		logger.Debug("message sent", "order_uid", order.OrderUID)
 
 		time.Sleep(1 * time.Second)
 	}
+
+	return nil
 }
 
 // generateRandomOrder creates an order with randomized fields for testing.

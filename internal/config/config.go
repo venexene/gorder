@@ -29,6 +29,7 @@ type Config struct {
 	RateLimitRegister string
 }
 
+// Configuration constants with default values.
 const (
 	LogFormatText            = "text"
 	LogFormatJSON            = "json"

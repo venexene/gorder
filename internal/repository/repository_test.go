@@ -59,7 +59,7 @@ func TestMain(m *testing.M) {
 	code := m.Run()
 
 	testPool.Close()
-	pgContainer.Terminate(ctx)
+	_ = pgContainer.Terminate(ctx)
 
 	os.Exit(code)
 }
@@ -117,10 +117,10 @@ func makeTestOrder(uid string) models.Order {
 func setupTest(t *testing.T) {
 	t.Helper()
 	ctx := context.Background()
-	testPool.Exec(ctx, "DELETE FROM item")
-	testPool.Exec(ctx, "DELETE FROM payment")
-	testPool.Exec(ctx, "DELETE FROM delivery")
-	testPool.Exec(ctx, "DELETE FROM orders")
+	_, _ = testPool.Exec(ctx, "DELETE FROM item")
+	_, _ = testPool.Exec(ctx, "DELETE FROM payment")
+	_, _ = testPool.Exec(ctx, "DELETE FROM delivery")
+	_, _ = testPool.Exec(ctx, "DELETE FROM orders")
 }
 
 func TestAddOrder_InsertAndRetrieve(t *testing.T) {

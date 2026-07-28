@@ -48,11 +48,11 @@ func newMockStorage() *mockStorage {
 	}
 }
 
-func (m *mockStorage) CheckHealthDB(ctx context.Context) error {
+func (m *mockStorage) CheckHealthDB(_ context.Context) error {
 	return m.healthError
 }
 
-func (m *mockStorage) GetOrderByUID(ctx context.Context, orderUID string) (*models.Order, error) {
+func (m *mockStorage) GetOrderByUID(_ context.Context, orderUID string) (*models.Order, error) {
 	if orderUID == "exist" {
 		return &models.Order{OrderUID: "exist", TrackNumber: "TRACK", CustomerID: "admin"}, nil
 	}
@@ -73,7 +73,7 @@ func (m *mockStorage) GetOrderByUIDAndUser(ctx context.Context, orderUID, userID
 	return order, nil
 }
 
-func (m *mockStorage) GetAllOrdersUIDByUser(ctx context.Context, userID string) ([]string, error) {
+func (m *mockStorage) GetAllOrdersUIDByUser(_ context.Context, userID string) ([]string, error) {
 	if userID == "testuser" {
 		return []string{"user-order1", "user-order2"}, nil
 	}
@@ -83,27 +83,27 @@ func (m *mockStorage) GetAllOrdersUIDByUser(ctx context.Context, userID string) 
 	return []string{}, nil
 }
 
-func (m *mockStorage) GetAllOrdersUID(ctx context.Context) ([]string, error) {
+func (m *mockStorage) GetAllOrdersUID(_ context.Context) ([]string, error) {
 	return []string{"order1", "order2"}, nil
 }
 
-func (m *mockStorage) GetRecentOrdersUID(ctx context.Context, limit int) ([]string, error) {
+func (m *mockStorage) GetRecentOrdersUID(_ context.Context, _ int) ([]string, error) {
 	return []string{"order1", "order2"}, nil
 }
 
-func (m *mockStorage) OrderExists(ctx context.Context, orderUID string) (bool, error) {
+func (m *mockStorage) OrderExists(_ context.Context, orderUID string) (bool, error) {
 	return orderUID == "exist", nil
 }
 
-func (m *mockStorage) AddOrder(ctx context.Context, order *models.Order) error {
+func (m *mockStorage) AddOrder(_ context.Context, _ *models.Order) error {
 	return nil
 }
 
-func (m *mockStorage) AddOrderIfNotExists(ctx context.Context, order *models.Order) error {
+func (m *mockStorage) AddOrderIfNotExists(_ context.Context, _ *models.Order) error {
 	return nil
 }
 
-func (m *mockStorage) CreateUser(ctx context.Context, user *models.User) error {
+func (m *mockStorage) CreateUser(_ context.Context, user *models.User) error {
 	if m.createUserErr != nil {
 		return m.createUserErr
 	}
@@ -114,7 +114,7 @@ func (m *mockStorage) CreateUser(ctx context.Context, user *models.User) error {
 	return nil
 }
 
-func (m *mockStorage) GetUser(ctx context.Context, username string) (*models.User, error) {
+func (m *mockStorage) GetUser(_ context.Context, username string) (*models.User, error) {
 	user, exists := m.users[username]
 	if !exists {
 		return nil, fmt.Errorf("failed to find user with username %s: %w", username, pgx.ErrNoRows)
@@ -126,13 +126,13 @@ type mockConsumer struct {
 	healthError error
 }
 
-func (m *mockConsumer) CheckHealth(ctx context.Context) error {
+func (m *mockConsumer) CheckHealth(_ context.Context) error {
 	return m.healthError
 }
 
 func newTestHandler() *Handler {
 	logger := slog.New(slog.DiscardHandler)
-	hd := &HandlerDependencies{
+	hd := &Dependencies{
 		Repository: newMockStorage(),
 		Consumer:   &mockConsumer{},
 		Cache:      cache.NewCache(10, logger, nil),
@@ -203,7 +203,7 @@ func TestReadyCheckHandle(t *testing.T) {
 			}
 
 			var body map[string]string
-			json.NewDecoder(w.Body).Decode(&body)
+			_ = json.NewDecoder(w.Body).Decode(&body)
 			if body["status"] != tt.wantStatus {
 				t.Errorf("expected status %s, got %s", tt.wantStatus, body["status"])
 			}
@@ -252,7 +252,7 @@ func TestGetOrderByUIDHandle_Existing(t *testing.T) {
 		t.Errorf("expected 200, got %d", w.Code)
 	}
 	var order models.Order
-	json.NewDecoder(w.Body).Decode(&order)
+	_ = json.NewDecoder(w.Body).Decode(&order)
 	if order.OrderUID != "exist" {
 		t.Errorf("expected OrderUID 'exist', got %s", order.OrderUID)
 	}
@@ -308,7 +308,7 @@ func TestGetOrderByUIDHandle_CacheHit(t *testing.T) {
 		t.Errorf("expected 200, got %d", w.Code)
 	}
 	var order models.Order
-	json.NewDecoder(w.Body).Decode(&order)
+	_ = json.NewDecoder(w.Body).Decode(&order)
 	if order.TrackNumber != "CACHED" {
 		t.Errorf("expected TrackNumber 'CACHED', got %s", order.TrackNumber)
 	}
@@ -327,7 +327,7 @@ func TestGetAllOrdersUIDHandle(t *testing.T) {
 		t.Errorf("expected 200, got %d", w.Code)
 	}
 	var body map[string][]string
-	json.NewDecoder(w.Body).Decode(&body)
+	_ = json.NewDecoder(w.Body).Decode(&body)
 	if len(body["order_uids"]) != 2 {
 		t.Errorf("expected 2 UIDs, got %d", len(body["order_uids"]))
 	}
@@ -378,7 +378,7 @@ func TestLoginHandle(t *testing.T) {
 
 			if tt.wantCode == http.StatusOK {
 				var body map[string]string
-				json.NewDecoder(w.Body).Decode(&body)
+				_ = json.NewDecoder(w.Body).Decode(&body)
 				if body["status"] != "logged in" {
 					t.Errorf("expected status 'logged in', got %s", body["status"])
 				}
@@ -466,7 +466,7 @@ func TestRegisterHandle(t *testing.T) {
 
 			if tt.wantCode == http.StatusCreated {
 				var body map[string]string
-				json.NewDecoder(w.Body).Decode(&body)
+				_ = json.NewDecoder(w.Body).Decode(&body)
 				if body["status"] != "created" {
 					t.Errorf("expected status 'created', got %s", body["status"])
 				}
@@ -515,7 +515,7 @@ func TestRefreshHandle(t *testing.T) {
 
 			if tt.wantCode == http.StatusOK {
 				var body map[string]string
-				json.NewDecoder(w.Body).Decode(&body)
+				_ = json.NewDecoder(w.Body).Decode(&body)
 				if body["status"] != "logged in" {
 					t.Errorf("expected status 'logged in', got %s", body["status"])
 				}
@@ -556,7 +556,7 @@ func TestGetUserOrderByUIDHandle_Success(t *testing.T) {
 		t.Errorf("expected 200, got %d", w.Code)
 	}
 	var order models.Order
-	json.NewDecoder(w.Body).Decode(&order)
+	_ = json.NewDecoder(w.Body).Decode(&order)
 	if order.OrderUID != "user-exist" {
 		t.Errorf("expected OrderUID 'user-exist', got %s", order.OrderUID)
 	}
@@ -608,7 +608,7 @@ func TestGetAllUserOrdersUIDHandle(t *testing.T) {
 		t.Errorf("expected 200, got %d", w.Code)
 	}
 	var body map[string][]string
-	json.NewDecoder(w.Body).Decode(&body)
+	_ = json.NewDecoder(w.Body).Decode(&body)
 	if len(body["order_uids"]) != 2 {
 		t.Errorf("expected 2 UIDs for testuser, got %d", len(body["order_uids"]))
 	}

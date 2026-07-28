@@ -1,18 +1,21 @@
+version: "2"
+
 linters:
   enable:
-    - errcheck
-    - govet
-    - staticcheck
-    - ineffassign
-    - unused
-    - misspell 
-    - unconvert
-    - goconst
+  - errcheck
+  - govet
+  - staticcheck
+  - ineffassign
+  - unused
+  - misspell 
+  - unconvert
+  - revive
+  - gocritic
+  - nilerr
+  - nolintlint
+  - wastedassign
 
 linters-settings:
-  goconst:
-    min-len: 5
-    min-occurrences: 4
   misspell:
     locale: US
 
@@ -20,15 +23,6 @@ issues:
   exclude-dirs:
     - migrations
     - testdata
-  exclude-files:
-    - "cmd/emulator/.*"
-    - "cmd/gen-token/.*"
-    - "embed\\.go"
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - errcheck
-        - goconst
 
 run:
   timeout: 5m

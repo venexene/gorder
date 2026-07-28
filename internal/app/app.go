@@ -32,6 +32,7 @@ import (
 	"github.com/venexene/gorder/internal/repository"
 )
 
+// Dependencies holds all application dependencies wired together at startup.
 type Dependencies struct {
 	Repository      *repository.Repository
 	Consumer        *consumer.Consumer
@@ -45,6 +46,7 @@ type Dependencies struct {
 	Commit          string
 }
 
+// Run initializes the application, starts the HTTP server, and handles graceful shutdown.
 func Run(dep *Dependencies) error {
 	var err error
 
@@ -95,7 +97,11 @@ func Run(dep *Dependencies) error {
 
 	reader := createKafkaReader(dep.Config)
 	dep.Consumer = consumer.NewConsumer(reader, dep.Repository, dep.Cache, dep.Logger, dep.Metrics, dep.Config.KafkaBrokers)
-	defer dep.Consumer.Close()
+	defer func() {
+		if err := dep.Consumer.Close(); err != nil {
+			dep.Logger.Debug("failed to close consumer", "error", err)
+		}
+	}()
 	dep.Logger.Info("created message consumer")
 
 	consumerDone := make(chan struct{})
@@ -206,7 +212,7 @@ func createRouter(dep *Dependencies) (*gin.Engine, error) {
 	}
 	router.StaticFS("/static", http.FS(sub))
 
-	hd := &handler.HandlerDependencies{
+	hd := &handler.Dependencies{
 		Repository: dep.Repository,
 		Consumer:   dep.Consumer,
 		Cache:      dep.Cache,

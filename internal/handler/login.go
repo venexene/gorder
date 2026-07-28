@@ -71,6 +71,7 @@ func (h *Handler) LoginHandle(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "logged in"})
 }
 
+// LoginPageHandle serves the login HTML page.
 func (h *Handler) LoginPageHandle(c *gin.Context) {
 	c.HTML(http.StatusOK, "login.html", nil)
 }
@@ -239,6 +240,7 @@ func (h *Handler) RefreshHandle(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "logged in"})
 }
 
+// RegisterPageHandle serves the registration HTML page.
 func (h *Handler) RegisterPageHandle(c *gin.Context) {
 	c.HTML(http.StatusOK, "register.html", nil)
 }

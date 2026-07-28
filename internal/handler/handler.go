@@ -25,7 +25,8 @@ const (
 	statusUp   = "UP"
 )
 
-type HandlerDependencies struct {
+// Dependencies holds dependencies for HTTP request handlers.
+type Dependencies struct {
 	Repository repository.Interface
 	Consumer   consumer.HealthChecker
 	Cache      *cache.Cache
@@ -47,7 +48,7 @@ type Handler struct {
 }
 
 // NewHandler creates a Handler with the given dependencies.
-func NewHandler(hd *HandlerDependencies) *Handler {
+func NewHandler(hd *Dependencies) *Handler {
 	return &Handler{
 		repo:     hd.Repository,
 		consumer: hd.Consumer,
@@ -272,7 +273,7 @@ func (h *Handler) GetAllOrdersUIDHandle(c *gin.Context) {
 	})
 }
 
-// GetAllOrdersUIDHandle returns all users order UIDs as JSON.
+// GetAllUserOrdersUIDHandle returns all user's order UIDs as JSON.
 // @Summary      Get own order UIDs (user)
 // @Description  Returns order UIDs belonging to the authenticated user.
 // @Tags         orders

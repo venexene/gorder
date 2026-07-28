@@ -28,7 +28,7 @@ func (m *mockReader) AddMessage(msg kafka.Message) {
 	m.messages = append(m.messages, msg)
 }
 
-func (m *mockReader) ReadMessage(ctx context.Context) (kafka.Message, error) {
+func (m *mockReader) ReadMessage(_ context.Context) (kafka.Message, error) {
 	if m.index >= len(m.messages) {
 		return kafka.Message{}, context.Canceled
 	}
@@ -51,50 +51,50 @@ func newMockRepository() *mockStorage {
 	return &mockStorage{}
 }
 
-func (m *mockStorage) AddOrderIfNotExists(ctx context.Context, order *models.Order) error {
+func (m *mockStorage) AddOrderIfNotExists(_ context.Context, order *models.Order) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.addOrderCalls = append(m.addOrderCalls, order)
 	return m.addOrderErr
 }
 
-func (m *mockStorage) AddOrder(ctx context.Context, order *models.Order) error {
+func (m *mockStorage) AddOrder(_ context.Context, _ *models.Order) error {
 	return nil
 }
 
-func (m *mockStorage) CheckHealthDB(ctx context.Context) error {
+func (m *mockStorage) CheckHealthDB(_ context.Context) error {
 	return nil
 }
 
-func (m *mockStorage) GetOrderByUID(ctx context.Context, uid string) (*models.Order, error) {
+func (m *mockStorage) GetOrderByUID(_ context.Context, _ string) (*models.Order, error) {
 	return nil, nil
 }
 
-func (m *mockStorage) GetAllOrdersUID(ctx context.Context) ([]string, error) {
+func (m *mockStorage) GetAllOrdersUID(_ context.Context) ([]string, error) {
 	return nil, nil
 }
 
-func (m *mockStorage) GetRecentOrdersUID(ctx context.Context, limit int) ([]string, error) {
+func (m *mockStorage) GetRecentOrdersUID(_ context.Context, _ int) ([]string, error) {
 	return nil, nil
 }
 
-func (m *mockStorage) OrderExists(ctx context.Context, uid string) (bool, error) {
+func (m *mockStorage) OrderExists(_ context.Context, _ string) (bool, error) {
 	return false, nil
 }
 
-func (m *mockStorage) GetOrderByUIDAndUser(ctx context.Context, orderUID, userID string) (*models.Order, error) {
+func (m *mockStorage) GetOrderByUIDAndUser(_ context.Context, _, _ string) (*models.Order, error) {
 	return nil, nil
 }
 
-func (m *mockStorage) GetAllOrdersUIDByUser(ctx context.Context, userID string) ([]string, error) {
+func (m *mockStorage) GetAllOrdersUIDByUser(_ context.Context, _ string) ([]string, error) {
 	return nil, nil
 }
 
-func (m *mockStorage) CreateUser(ctx context.Context, user *models.User) error {
+func (m *mockStorage) CreateUser(_ context.Context, _ *models.User) error {
 	return nil
 }
 
-func (m *mockStorage) GetUser(ctx context.Context, username string) (*models.User, error) {
+func (m *mockStorage) GetUser(_ context.Context, _ string) (*models.User, error) {
 	return nil, nil
 }
 
