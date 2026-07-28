@@ -51,7 +51,7 @@ func Run(dep *Dependencies) error {
 	dep.Config, err = config.Load(".env")
 	if err != nil {
 		slog.Error("failed to load config", "error", err)
-		return fmt.Errorf("Failed to load config")
+		return fmt.Errorf("failed to load config: %w", err)
 	}
 	slog.Info("loaded config")
 
@@ -72,7 +72,7 @@ func Run(dep *Dependencies) error {
 	pool, err := repository.CreatePool(ctx, dep.Config)
 	if err != nil {
 		dep.Logger.Error("failed to connect database", "error", err)
-		return fmt.Errorf("Failed to connect database")
+		return fmt.Errorf("failed to connect database: %w", err)
 	}
 	defer pool.Close()
 
@@ -81,7 +81,7 @@ func Run(dep *Dependencies) error {
 
 	if err := dep.Repository.RunMigrations(); err != nil {
 		dep.Logger.Error("failed to migrate database", "error", err)
-		return fmt.Errorf("Failed to migrate database")
+		return fmt.Errorf("failed to migrate database: %w", err)
 	}
 
 	dep.Cache = cache.NewCache(dep.Config.CacheCapacity, dep.Logger, dep.Metrics)
@@ -108,21 +108,21 @@ func Run(dep *Dependencies) error {
 	dep.Limiter, err = createRateLimiter(dep.Config.RateLimit)
 	if err != nil {
 		dep.Logger.Error("failed to create rate limiter", "error", err)
-		return fmt.Errorf("Failed to create rate limiter")
+		return fmt.Errorf("failed to create rate limiter: %w", err)
 	}
 	dep.Logger.Info("started rate limiter", "limit", dep.Config.RateLimit)
 
 	dep.RegisterLimiter, err = createRateLimiter(dep.Config.RateLimitRegister)
 	if err != nil {
 		dep.Logger.Error("failed to create register rate limiter", "error", err)
-		return fmt.Errorf("Failed to create register rate limiter")
+		return fmt.Errorf("failed to create register rate limiter: %w", err)
 	}
 	dep.Logger.Info("started register rate limiter", "limit", dep.Config.RateLimitRegister)
 
 	router, err := createRouter(dep)
 	if err != nil {
 		dep.Logger.Error("failed to create router", "error", err)
-		return fmt.Errorf("Failed to create router")
+		return fmt.Errorf("failed to create router: %w", err)
 	}
 	dep.Logger.Info("created router")
 
@@ -154,12 +154,12 @@ func Run(dep *Dependencies) error {
 
 		if err := srv.Shutdown(ctxShutdown); err != nil {
 			dep.Logger.Error("failed to shutdown server", "error", err)
-			return fmt.Errorf("Failed to shutdown server")
+			return fmt.Errorf("failed to shutdown server: %w", err)
 		}
 		dep.Logger.Info("shutdown server")
 	case err := <-errCh:
 		dep.Logger.Error("HTTP server error", "error", err)
-		return fmt.Errorf("HTTP server error")
+		return fmt.Errorf("HTTP server error: %w", err)
 	}
 	return nil
 }
@@ -202,7 +202,7 @@ func createRouter(dep *Dependencies) (*gin.Engine, error) {
 	sub, err := fs.Sub(gorder.StaticFS, "web/static")
 	if err != nil {
 		dep.Logger.Error("failed to init static filesystem", "error", err)
-		return nil, fmt.Errorf("Failed to init static filesystem")
+		return nil, fmt.Errorf("failed to init static filesystem: %w", err)
 	}
 	router.StaticFS("/static", http.FS(sub))
 

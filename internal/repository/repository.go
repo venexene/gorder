@@ -64,11 +64,11 @@ func CreatePool(ctx context.Context, cfg *config.Config) (*pgxpool.Pool, error) 
 
 	pool, err := pgxpool.New(poolCtx, connectionStr)
 	if err != nil {
-		return pool, fmt.Errorf("failed to create pool: %v", err)
+		return pool, fmt.Errorf("failed to create pool: %w", err)
 	}
 
 	if err := pool.Ping(poolCtx); err != nil {
-		return pool, fmt.Errorf("failed to ping database: %v", err)
+		return pool, fmt.Errorf("failed to ping database: %w", err)
 	}
 
 	return pool, nil
@@ -80,11 +80,11 @@ func (s *Repository) RunMigrations() error {
 
 	m, err := migrate.New(fmt.Sprintf("file://%s", s.migrationPath), connStr)
 	if err != nil {
-		return fmt.Errorf("failed to init migrate: %v", err)
+		return fmt.Errorf("failed to init migrate: %w", err)
 	}
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		return fmt.Errorf("failed to up migrate: %v", err)
+		return fmt.Errorf("failed to up migrate: %w", err)
 	}
 
 	return nil
