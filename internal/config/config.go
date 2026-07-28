@@ -32,10 +32,90 @@ type Config struct {
 const (
 	LogFormatText            = "text"
 	LogFormatJSON            = "json"
+	DefaultHTTPPort          = "8080"
+	DefaultDBPort            = "5432"
 	DefaultMigrationDir      = "migrations"
+	DefaultSSLMode           = "disable"
 	DefaultRateLimit         = "5-S"
 	DefaultRateLimitRegister = "3-M"
 )
+
+func (cfg *Config) validateConfigs() error {
+	if cfg.LogFormat != LogFormatText && cfg.LogFormat != LogFormatJSON {
+		return fmt.Errorf("LOG_FORMAT must be text or json")
+	}
+
+	if cfg.JWTSecret == "" {
+		return fmt.Errorf("JWT_SECRET is required")
+	}
+	if cfg.DBHost == "" {
+		return fmt.Errorf("DB_HOST is required")
+	}
+	if cfg.DBUser == "" {
+		return fmt.Errorf("DB_USER is required")
+	}
+	if cfg.DBPass == "" {
+		return fmt.Errorf("DB_PASSWORD is required")
+	}
+	if cfg.DBName == "" {
+		return fmt.Errorf("DB_NAME is required")
+	}
+
+	if cfg.KafkaBrokers == "" {
+		return fmt.Errorf("KAFKA_BROKERS is required")
+	}
+	if cfg.KafkaTopic == "" {
+		return fmt.Errorf("KAFKA_TOPIC is required")
+	}
+
+	httpPort, err := strconv.Atoi(cfg.HTTPPort)
+	if err != nil {
+		return fmt.Errorf("HTTP_PORT must be number")
+	}
+	if httpPort < 1024 || httpPort > 65535 {
+		return fmt.Errorf("HTTP_PORT must be between 1024 and 65535")
+	}
+
+	dbPort, err := strconv.Atoi(cfg.DBPort)
+	if err != nil {
+		return fmt.Errorf("DB_PORT must be number")
+	}
+	if dbPort < 1024 || dbPort > 65535 {
+		return fmt.Errorf("DB_PORT must be between 1024 and 65535")
+	}
+
+	return nil
+}
+
+func (cfg *Config) applyDefaults() {
+	if cfg.HTTPPort == "" {
+		cfg.HTTPPort = DefaultHTTPPort
+	}
+
+	if cfg.DBPort == "" {
+		cfg.DBPort = DefaultDBPort
+	}
+
+	if cfg.LogFormat == "" {
+		cfg.LogFormat = LogFormatText
+	}
+
+	if cfg.DBSSLMode == "" {
+		cfg.DBSSLMode = DefaultSSLMode
+	}
+
+	if cfg.MigrationDir == "" {
+		cfg.MigrationDir = DefaultMigrationDir
+	}
+
+	if cfg.RateLimit == "" {
+		cfg.RateLimit = DefaultRateLimit
+	}
+
+	if cfg.RateLimitRegister == "" {
+		cfg.RateLimitRegister = DefaultRateLimitRegister
+	}
+}
 
 // Load reads the given env file and returns Config.
 func Load(path string) (*Config, error) {
@@ -50,7 +130,7 @@ func Load(path string) (*Config, error) {
 
 	cacheCapacity, err := strconv.Atoi(cacheCapacityRaw)
 	if err != nil {
-		cacheCapacity = 100
+		return nil, fmt.Errorf("CACHE_CAPACITY must be a number, got %q: %w", cacheCapacityRaw, err)
 	}
 	if cacheCapacity <= 0 {
 		return nil, fmt.Errorf("CACHE_CAPACITY must be more than 0")
@@ -74,67 +154,10 @@ func Load(path string) (*Config, error) {
 		RateLimitRegister: os.Getenv("RATE_LIMIT_REGISTER"),
 	}
 
-	if cfg.LogFormat != LogFormatText && cfg.LogFormat != LogFormatJSON {
-		return nil, fmt.Errorf("LOG_FORMAT must be text or json")
-	}
+	cfg.applyDefaults()
 
-	if cfg.HTTPPort == "" {
-		cfg.HTTPPort = "8080"
-	}
-	if cfg.LogFormat == "" {
-		cfg.LogFormat = LogFormatText
-	}
-	if cfg.JWTSecret == "" {
-		return nil, fmt.Errorf("JWT_SECRET is required")
-	}
-	if cfg.DBHost == "" {
-		return nil, fmt.Errorf("DB_HOST is required")
-	}
-	if cfg.DBPort == "" {
-		return nil, fmt.Errorf("DB_PORT is required")
-	}
-	if cfg.DBUser == "" {
-		return nil, fmt.Errorf("DB_USER is required")
-	}
-	if cfg.DBPass == "" {
-		return nil, fmt.Errorf("DB_PASSWORD is required")
-	}
-	if cfg.DBName == "" {
-		return nil, fmt.Errorf("DB_NAME is required")
-	}
-	if cfg.DBSSLMode == "" {
-		cfg.DBSSLMode = "disable"
-	}
-	if cfg.MigrationDir == "" {
-		cfg.MigrationDir = "migrations"
-	}
-	if cfg.KafkaBrokers == "" {
-		return nil, fmt.Errorf("KAFKA_BROKERS is required")
-	}
-	if cfg.KafkaTopic == "" {
-		return nil, fmt.Errorf("KAFKA_TOPIC is required")
-	}
-	if cfg.RateLimit == "" {
-		cfg.RateLimit = DefaultRateLimit
-	}
-	if cfg.RateLimitRegister == "" {
-		cfg.RateLimitRegister = DefaultRateLimitRegister
-	}
-
-	httpPort, err := strconv.Atoi(cfg.HTTPPort)
-	if err != nil {
-		return nil, fmt.Errorf("HTTP_PORT must be number")
-	}
-	if httpPort < 1024 || httpPort > 65535 {
-		return nil, fmt.Errorf("HTTP_PORT must be between 1024 and 65535")
-	}
-
-	dbPort, err := strconv.Atoi(cfg.DBPort)
-	if err != nil {
-		return nil, fmt.Errorf("DB_PORT must be number")
-	}
-	if dbPort < 1024 || dbPort > 65535 {
-		return nil, fmt.Errorf("DB_PORT must be between 1024 and 65535")
+	if err := cfg.validateConfigs(); err != nil {
+		return nil, err
 	}
 
 	return cfg, nil

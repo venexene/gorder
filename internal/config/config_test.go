@@ -94,6 +94,7 @@ func TestLoad_Defaults(t *testing.T) {
 	dir := t.TempDir()
 	path := writeEnvFile(t, dir, makeValidEnv()+
 		"\nHTTP_PORT="+
+		"\nDB_PORT="+
 		"\nDB_SSL_MODE="+
 		"\nMIGRATION_DIR="+
 		"\nJWT_TOKEN=")
@@ -104,6 +105,9 @@ func TestLoad_Defaults(t *testing.T) {
 	}
 	if cfg.HTTPPort != "8080" {
 		t.Errorf("HTTPPort: want 8080, got %s", cfg.HTTPPort)
+	}
+	if cfg.DBPort != DefaultDBPort {
+		t.Errorf("DBPort: want %s, got %s", DefaultDBPort, cfg.DBPort)
 	}
 	if cfg.DBSSLMode != "disable" {
 		t.Errorf("DBSSLMode: want disable, got %s", cfg.DBSSLMode)
@@ -180,13 +184,12 @@ func TestLoad_DBPortValidation(t *testing.T) {
 
 func TestLoad_CacheCapacityValidation(t *testing.T) {
 	tests := []struct {
-		name        string
-		value       string
-		wantErr     bool
-		wantDefault int
+		name    string
+		value   string
+		wantErr bool
 	}{
-		{name: "default on missing", value: "", wantErr: false, wantDefault: 100},
-		{name: "default on invalid", value: "notanumber", wantErr: false, wantDefault: 100},
+		{name: "missing", value: "", wantErr: true},
+		{name: "invalid", value: "notanumber", wantErr: true},
 		{name: "zero rejected", value: "0", wantErr: true},
 		{name: "negative rejected", value: "-1", wantErr: true},
 	}
@@ -202,7 +205,7 @@ func TestLoad_CacheCapacityValidation(t *testing.T) {
 			}
 			path := writeEnvFile(t, dir, content)
 
-			cfg, err := Load(path)
+			_, err := Load(path)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")
@@ -211,9 +214,6 @@ func TestLoad_CacheCapacityValidation(t *testing.T) {
 			}
 			if err != nil {
 				t.Fatalf("load failed: %v", err)
-			}
-			if cfg.CacheCapacity != tt.wantDefault {
-				t.Errorf("CacheCapacity: want %d, got %d", tt.wantDefault, cfg.CacheCapacity)
 			}
 		})
 	}
@@ -261,7 +261,6 @@ func TestLoad_RequiredFields(t *testing.T) {
 	}{
 		{name: "DB_HOST", skip: "DB_HOST", wantErr: "DB_HOST is required"},
 		{name: "JWT_SECRET", skip: "JWT_SECRET", wantErr: "JWT_SECRET is required"},
-		{name: "DB_PORT", skip: "DB_PORT", wantErr: "DB_PORT is required"},
 		{name: "DB_USER", skip: "DB_USER", wantErr: "DB_USER is required"},
 		{name: "DB_PASSWORD", skip: "DB_PASSWORD", wantErr: "DB_PASSWORD is required"},
 		{name: "DB_NAME", skip: "DB_NAME", wantErr: "DB_NAME is required"},
