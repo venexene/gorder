@@ -11,6 +11,23 @@ Event-driven order processing service. Kafka ingestion, PostgreSQL persistence, 
 
 **Go** · **Gin** · **PostgreSQL** · **Apache Kafka** · **Docker** · **Prometheus** · **Grafana** · **JWT** · **Swagger** · **GitHub Actions**
 
+## Architecture
+
+```mermaid
+flowchart LR
+    Emulator[Emulator] -->|test orders| Kafka[Apache Kafka]
+    Kafka -->|consume| Consumer[Consumer]
+    Consumer -->|validate & persist| DB[(PostgreSQL)]
+    Consumer -->|update| Cache[LRU Cache]
+    Client[Browser / API Client] -->|HTTP| Router[Gin Router]
+    Router -->|JWT check| Middleware[Auth Middleware]
+    Middleware -->|RBAC| Handler[Handler]
+    Handler -->|cache hit| Cache
+    Handler -->|cache miss| DB
+    Handler -->|record| Metrics[Prometheus Metrics]
+    Middleware --> RateLimit[Rate Limiter]
+```
+
 ## Quick start
 
 ```
@@ -84,11 +101,11 @@ All settings in `.env`. Copy `.env.example` and fill in your values.
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `HTTP_PORT` | `8080` | listen port |
-| `CACHE_CAPACITY` | `100` | max cached orders before eviction |
+| `CACHE_CAPACITY` | - | max cached orders before eviction (required) |
 | `LOG_FORMAT` | `text` | logging format: text or json |
 | `JWT_SECRET` | - | secret key for JWT signing (required) |
 | `DB_HOST` | - | PostgreSQL host (required) |
-| `DB_PORT` | - | PostgreSQL port (required) |
+| `DB_PORT` | `5432` | PostgreSQL port |
 | `DB_USER` | - | PostgreSQL user (required) |
 | `DB_PASSWORD` | - | PostgreSQL password (required) |
 | `DB_NAME` | - | database name (required) |
@@ -149,6 +166,17 @@ testdata/              sample order JSON files
 
 Database migrations run at startup via `golang-migrate`. Orders are stored transactionally across four tables: `orders`, `delivery`, `payment`, `items`. Users stored in a separate table with bcrypt-hashed passwords. Graceful shutdown via `signal.NotifyContext` for both the HTTP server and Kafka consumer.
 
+## Testing
+
+```bash
+make test                          # unit + integration tests with race detector
+make lint                          # golangci-lint (13 linters)
+```
+
+- Unit tests with mocked dependencies for handlers, middleware, cache, and consumer
+- Integration tests with real PostgreSQL via testcontainers-go for the repository layer
+- CI runs lint, vet, tests, and Docker build on every push and pull request
+
 ## Development
 
 ```
@@ -162,11 +190,3 @@ make token      # generate JWT for testing
 ```
 
 CI runs on every push and pull request: lint → test → docker build.
-
-## Tests
-
-```
-make test
-```
-
-Repository tests use testcontainers (real PostgreSQL). Handler and middleware tests use mocks.
