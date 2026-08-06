@@ -71,6 +71,7 @@ func Run(dep *Dependencies) error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	
 	pool, err := repository.CreatePool(ctx, dep.Config)
 	if err != nil {
 		dep.Logger.Error("failed to connect database", "error", err)

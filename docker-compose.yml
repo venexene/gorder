@@ -8,8 +8,6 @@ services:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-    ports:
-      - "${DB_PORT}"
     volumes:
       - postgres_data:/var/lib/postgresql
     healthcheck:
@@ -47,7 +45,7 @@ services:
        - RATE_LIMIT=${RATE_LIMIT}
        - RATE_LIMIT_REGISTER=${RATE_LIMIT_REGISTER}
        - DB_HOST=${DB_HOST}
-       - DB_PORT=${DB_PORT}
+       - DB_PORT=5432
        - DB_USER=${DB_USER}
        - DB_PASSWORD=${DB_PASSWORD}
        - DB_NAME=${DB_NAME}
@@ -65,8 +63,6 @@ services:
   kafka:
     image: apache/kafka:4.0.0
     container_name: gorder-kafka
-    ports:
-      - "${KAFKA_PORT}:9092"
     environment:
       KAFKA_NODE_ID: 0
       KAFKA_PROCESS_ROLES: "controller,broker"
@@ -163,4 +159,3 @@ volumes:
 
 networks:
   orders-network:
-    driver: bridge

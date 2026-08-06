@@ -9,9 +9,7 @@ import (
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
-	// Register PostgreSQL driver for golang-migrate.
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	// Register file source driver for golang-migrate.
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
