@@ -9,7 +9,7 @@ Event-driven order processing service. Kafka ingestion, PostgreSQL persistence, 
 
 ## Tech Stack
 
-**Go** · **Gin** · **PostgreSQL** · **Apache Kafka** · **Docker** · **Prometheus** · **Grafana** · **JWT** · **Swagger** · **GitHub Actions**
+**Go** · **Gin** · **PostgreSQL** · **Apache Kafka** · **Docker** · **Prometheus** · **Grafana** · **JWT** · **vanilla HTML/CSS/JS** · **Swagger** · **GitHub Actions**
 
 ## Architecture
 
