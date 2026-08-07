@@ -30,7 +30,6 @@ func (h *Handler) LoginHandle(c *gin.Context) {
 	var login dto.LoginRequest
 
 	if err := c.ShouldBindJSON(&login); err != nil {
-		h.logger.Error("failed to bind json to struct", "error", err)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": fmt.Sprintf("failed to bind json to struct: %s", err),
 		})
@@ -39,7 +38,6 @@ func (h *Handler) LoginHandle(c *gin.Context) {
 
 	user, err := h.repo.GetUser(c.Request.Context(), login.Username)
 	if err != nil {
-		h.logger.Error("failed to get user from storage", "error", err)
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"error": "invalid username or password",
 		})
@@ -47,7 +45,6 @@ func (h *Handler) LoginHandle(c *gin.Context) {
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(login.Password)); err != nil {
-		h.logger.Error("failed to login", "error", err)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid username or password"})
 		return
 	}
@@ -163,7 +160,6 @@ func (h *Handler) RefreshHandle(c *gin.Context) {
 	var req dto.RefreshRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		h.logger.Error("failed to bind json to struct", "error", err)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": fmt.Sprintf("failed to bind json to struct: %s", err),
 		})
@@ -178,7 +174,6 @@ func (h *Handler) RefreshHandle(c *gin.Context) {
 	})
 
 	if err != nil || !token.Valid {
-		h.logger.Error("invalid or expired token")
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"error": "Invalid or expired token",
 		})

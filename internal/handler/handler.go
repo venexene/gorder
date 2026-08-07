@@ -138,7 +138,6 @@ func (h *Handler) GetOrderByUIDHandle(c *gin.Context) {
 
 	orderUID := c.Param("uid")
 	if orderUID == "" {
-		userLogger.Warn("no uid received")
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "No UID received",
 		})
@@ -153,7 +152,6 @@ func (h *Handler) GetOrderByUIDHandle(c *gin.Context) {
 	order, err := h.repo.GetOrderByUID(c.Request.Context(), orderUID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			userLogger.Warn("order not found", "order_uid", orderUID)
 			c.JSON(http.StatusNotFound, gin.H{
 				"error": "Failed to find order",
 			})
@@ -201,7 +199,6 @@ func (h *Handler) GetUserOrderByUIDHandle(c *gin.Context) {
 
 	orderUID := c.Param("uid")
 	if orderUID == "" {
-		userLogger.Warn("no uid received")
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "No UID received",
 		})
@@ -223,7 +220,6 @@ func (h *Handler) GetUserOrderByUIDHandle(c *gin.Context) {
 	order, err := h.repo.GetOrderByUIDAndUser(c.Request.Context(), orderUID, username.(string))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			userLogger.Warn("order not found", "order_uid", orderUID)
 			c.JSON(http.StatusNotFound, gin.H{
 				"error": "Failed to find order",
 			})
@@ -311,7 +307,6 @@ func (h *Handler) GetAllUserOrdersUIDHandle(c *gin.Context) {
 func (h *Handler) AllOrdersPageHandle(c *gin.Context) {
 	userID, ok := c.Get("user_id")
 	if !ok {
-		h.logger.Error("user is not logged")
 		c.HTML(http.StatusUnauthorized, "error.html", gin.H{
 			"error": "User is not logged",
 		})
@@ -322,7 +317,6 @@ func (h *Handler) AllOrdersPageHandle(c *gin.Context) {
 
 	role, ok := c.Get("role")
 	if !ok {
-		userLogger.Error("user has no role")
 		c.HTML(http.StatusUnauthorized, "error.html", gin.H{
 			"error": "User has no role",
 		})
@@ -354,7 +348,6 @@ func (h *Handler) AllOrdersPageHandle(c *gin.Context) {
 func (h *Handler) OrderPageHandle(c *gin.Context) {
 	userID, ok := c.Get("user_id")
 	if !ok {
-		h.logger.Error("user is not logged")
 		c.HTML(http.StatusUnauthorized, "error.html", gin.H{
 			"error": "User is not logged",
 		})
@@ -365,7 +358,6 @@ func (h *Handler) OrderPageHandle(c *gin.Context) {
 
 	role, ok := c.Get("role")
 	if !ok {
-		userLogger.Error("user has no role")
 		c.HTML(http.StatusUnauthorized, "error.html", gin.H{
 			"error": "User has no role",
 		})
@@ -375,7 +367,6 @@ func (h *Handler) OrderPageHandle(c *gin.Context) {
 	orderUID := c.Param("uid")
 
 	if orderUID == "" {
-		userLogger.Error("no uid received")
 		c.HTML(http.StatusBadRequest, "error.html", gin.H{
 			"error": "No UID received",
 		})
@@ -405,7 +396,6 @@ func (h *Handler) OrderPageHandle(c *gin.Context) {
 	if err != nil {
 		h.logger.Error("failed to get info by uid and user", "error", err)
 		if errors.Is(err, pgx.ErrNoRows) {
-			userLogger.Error("orders not found")
 			c.HTML(http.StatusNotFound, "error.html", gin.H{
 				"error": "Orders not found",
 			})
