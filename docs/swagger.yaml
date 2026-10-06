@@ -1,0 +1,438 @@
+basePath: /
+definitions:
+  dto.LoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    type: object
+  dto.RefreshRequest:
+    properties:
+      refresh_token:
+        type: string
+    type: object
+  models.Delivery:
+    properties:
+      address:
+        maxLength: 100
+        type: string
+      city:
+        maxLength: 100
+        type: string
+      email:
+        type: string
+      name:
+        maxLength: 100
+        type: string
+      phone:
+        type: string
+      region:
+        maxLength: 100
+        type: string
+      zip:
+        maxLength: 10
+        type: string
+    required:
+    - address
+    - city
+    - email
+    - name
+    - phone
+    - region
+    - zip
+    type: object
+  models.Item:
+    properties:
+      brand:
+        maxLength: 50
+        type: string
+      chrt_id:
+        minimum: 1
+        type: integer
+      name:
+        maxLength: 50
+        type: string
+      nm_id:
+        minimum: 1
+        type: integer
+      price:
+        minimum: 1
+        type: integer
+      rid:
+        maxLength: 50
+        type: string
+      sale:
+        minimum: 0
+        type: integer
+      size:
+        maxLength: 10
+        type: string
+      status:
+        maximum: 999
+        minimum: 0
+        type: integer
+      total_price:
+        minimum: 0
+        type: integer
+      track_number:
+        maxLength: 50
+        type: string
+    required:
+    - brand
+    - chrt_id
+    - name
+    - nm_id
+    - price
+    - rid
+    - size
+    - track_number
+    type: object
+  models.Order:
+    properties:
+      customer_id:
+        maxLength: 50
+        type: string
+      date_created:
+        type: string
+      delivery:
+        $ref: '#/definitions/models.Delivery'
+      delivery_service:
+        maxLength: 50
+        type: string
+      entry:
+        maxLength: 10
+        type: string
+      internal_signature:
+        maxLength: 100
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/models.Item'
+        minItems: 1
+        type: array
+      locale:
+        maxLength: 2
+        type: string
+      oof_shard:
+        maxLength: 10
+        type: string
+      order_uid:
+        type: string
+      payment:
+        $ref: '#/definitions/models.Payment'
+      shardkey:
+        maxLength: 10
+        type: string
+      sm_id:
+        minimum: 1
+        type: integer
+      track_number:
+        maxLength: 50
+        type: string
+    required:
+    - customer_id
+    - date_created
+    - delivery
+    - delivery_service
+    - entry
+    - items
+    - locale
+    - oof_shard
+    - order_uid
+    - payment
+    - shardkey
+    - sm_id
+    - track_number
+    type: object
+  models.Payment:
+    properties:
+      amount:
+        minimum: 1
+        type: integer
+      bank:
+        maxLength: 20
+        type: string
+      currency:
+        maxLength: 3
+        type: string
+      custom_fee:
+        minimum: 0
+        type: integer
+      delivery_cost:
+        minimum: 0
+        type: integer
+      goods_total:
+        minimum: 0
+        type: integer
+      payment_dt:
+        type: integer
+      provider:
+        maxLength: 50
+        type: string
+      request_id:
+        maxLength: 50
+        type: string
+      transaction:
+        type: string
+    required:
+    - amount
+    - bank
+    - currency
+    - payment_dt
+    - provider
+    - transaction
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: Event-driven order processing service with JWT authentication.
+  title: Gorder API
+  version: "1.0"
+paths:
+  /api/admin/all_orders_uids:
+    get:
+      description: Returns all order UIDs for admin users.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              items:
+                type: string
+              type: array
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get all order UIDs (admin)
+      tags:
+      - orders
+  /api/admin/orders/{uid}:
+    get:
+      description: Returns full order data as JSON for admin users.
+      parameters:
+      - description: Order UID
+        in: path
+        name: uid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Order'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get order by UID (admin)
+      tags:
+      - orders
+  /api/user/all_orders_uids:
+    get:
+      description: Returns order UIDs belonging to the authenticated user.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              items:
+                type: string
+              type: array
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get own order UIDs (user)
+      tags:
+      - orders
+  /api/user/orders/{uid}:
+    get:
+      description: Returns order data if it belongs to the authenticated user.
+      parameters:
+      - description: Order UID
+        in: path
+        name: uid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Order'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get own order by UID (user)
+      tags:
+      - orders
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: Login with username and password, sets httpOnly cookies with JWT
+        tokens.
+      parameters:
+      - description: Credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: logged in
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Authenticate user
+      tags:
+      - auth
+  /logout:
+    post:
+      description: Clears httpOnly cookies to end the session.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Logout
+      tags:
+      - auth
+  /refresh:
+    post:
+      consumes:
+      - application/json
+      description: Get a new access token using a valid refresh token.
+      parameters:
+      - description: Refresh token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: new tokens
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Refresh tokens
+      tags:
+      - auth
+  /register:
+    post:
+      consumes:
+      - application/json
+      description: Create a new account with username and password.
+      parameters:
+      - description: Credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: created
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Register new user
+      tags:
+      - auth
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

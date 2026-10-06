@@ -1,0 +1,639 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "Event-driven order processing service with JWT authentication.",
+        "title": "Gorder API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/",
+    "paths": {
+        "/api/admin/all_orders_uids": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns all order UIDs for admin users.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Get all order UIDs (admin)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/orders/{uid}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns full order data as JSON for admin users.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Get order by UID (admin)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order UID",
+                        "name": "uid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Order"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/user/all_orders_uids": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns order UIDs belonging to the authenticated user.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Get own order UIDs (user)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/user/orders/{uid}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns order data if it belongs to the authenticated user.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Get own order by UID (user)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order UID",
+                        "name": "uid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Order"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/login": {
+            "post": {
+                "description": "Login with username and password, sets httpOnly cookies with JWT tokens.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Authenticate user",
+                "parameters": [
+                    {
+                        "description": "Credentials",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.LoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "logged in",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/logout": {
+            "post": {
+                "description": "Clears httpOnly cookies to end the session.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Logout",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/refresh": {
+            "post": {
+                "description": "Get a new access token using a valid refresh token.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Refresh tokens",
+                "parameters": [
+                    {
+                        "description": "Refresh token",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.RefreshRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "new tokens",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/register": {
+            "post": {
+                "description": "Create a new account with username and password.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Register new user",
+                "parameters": [
+                    {
+                        "description": "Credentials",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.LoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "dto.LoginRequest": {
+            "type": "object",
+            "properties": {
+                "password": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.RefreshRequest": {
+            "type": "object",
+            "properties": {
+                "refresh_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Delivery": {
+            "type": "object",
+            "required": [
+                "address",
+                "city",
+                "email",
+                "name",
+                "phone",
+                "region",
+                "zip"
+            ],
+            "properties": {
+                "address": {
+                    "type": "string",
+                    "maxLength": 100
+                },
+                "city": {
+                    "type": "string",
+                    "maxLength": 100
+                },
+                "email": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 100
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "region": {
+                    "type": "string",
+                    "maxLength": 100
+                },
+                "zip": {
+                    "type": "string",
+                    "maxLength": 10
+                }
+            }
+        },
+        "models.Item": {
+            "type": "object",
+            "required": [
+                "brand",
+                "chrt_id",
+                "name",
+                "nm_id",
+                "price",
+                "rid",
+                "size",
+                "track_number"
+            ],
+            "properties": {
+                "brand": {
+                    "type": "string",
+                    "maxLength": 50
+                },
+                "chrt_id": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 50
+                },
+                "nm_id": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "price": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "rid": {
+                    "type": "string",
+                    "maxLength": 50
+                },
+                "sale": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "size": {
+                    "type": "string",
+                    "maxLength": 10
+                },
+                "status": {
+                    "type": "integer",
+                    "maximum": 999,
+                    "minimum": 0
+                },
+                "total_price": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "track_number": {
+                    "type": "string",
+                    "maxLength": 50
+                }
+            }
+        },
+        "models.Order": {
+            "type": "object",
+            "required": [
+                "customer_id",
+                "date_created",
+                "delivery",
+                "delivery_service",
+                "entry",
+                "items",
+                "locale",
+                "oof_shard",
+                "order_uid",
+                "payment",
+                "shardkey",
+                "sm_id",
+                "track_number"
+            ],
+            "properties": {
+                "customer_id": {
+                    "type": "string",
+                    "maxLength": 50
+                },
+                "date_created": {
+                    "type": "string"
+                },
+                "delivery": {
+                    "$ref": "#/definitions/models.Delivery"
+                },
+                "delivery_service": {
+                    "type": "string",
+                    "maxLength": 50
+                },
+                "entry": {
+                    "type": "string",
+                    "maxLength": 10
+                },
+                "internal_signature": {
+                    "type": "string",
+                    "maxLength": 100
+                },
+                "items": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/models.Item"
+                    }
+                },
+                "locale": {
+                    "type": "string",
+                    "maxLength": 2
+                },
+                "oof_shard": {
+                    "type": "string",
+                    "maxLength": 10
+                },
+                "order_uid": {
+                    "type": "string"
+                },
+                "payment": {
+                    "$ref": "#/definitions/models.Payment"
+                },
+                "shardkey": {
+                    "type": "string",
+                    "maxLength": 10
+                },
+                "sm_id": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "track_number": {
+                    "type": "string",
+                    "maxLength": 50
+                }
+            }
+        },
+        "models.Payment": {
+            "type": "object",
+            "required": [
+                "amount",
+                "bank",
+                "currency",
+                "payment_dt",
+                "provider",
+                "transaction"
+            ],
+            "properties": {
+                "amount": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "bank": {
+                    "type": "string",
+                    "maxLength": 20
+                },
+                "currency": {
+                    "type": "string",
+                    "maxLength": 3
+                },
+                "custom_fee": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "delivery_cost": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "goods_total": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "payment_dt": {
+                    "type": "integer"
+                },
+                "provider": {
+                    "type": "string",
+                    "maxLength": 50
+                },
+                "request_id": {
+                    "type": "string",
+                    "maxLength": 50
+                },
+                "transaction": {
+                    "type": "string"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    }
+}
